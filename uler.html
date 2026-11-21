@@ -1,0 +1,1808 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Ular Tangga P2P (1–8 Pemain)</title>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-dark: #0e1220;
+    --panel-bg: rgba(23, 29, 50, 0.88);
+    --gold: #ffd166;
+    --emerald: #06d6a0;
+    --coral: #ff4d6d;
+    --sky: #4cc9f0;
+    --border: rgba(255, 255, 255, 0.14);
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    font-family: 'Fredoka', sans-serif;
+  }
+
+  body {
+    background: radial-gradient(circle at top, #1d2747 0%, var(--bg-dark) 100%);
+    color: #fff;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ================= ELEGAN LOADING ================= */
+  #loadingScreen {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(circle at center, #1b2440 0%, #0a0d18 100%);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+    transition: opacity 0.55s ease, visibility 0.55s ease;
+  }
+  #loadingScreen.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .load-spinner {
+    width: 74px;
+    height: 74px;
+    border-radius: 22px;
+    background: linear-gradient(135deg, var(--emerald), var(--sky));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    box-shadow: 0 14px 34px rgba(6, 214, 160, 0.35);
+    animation: spinBounce 1.4s infinite ease-in-out;
+  }
+  @keyframes spinBounce {
+    0%, 100% { transform: rotate(-10deg) scale(1); }
+    50% { transform: rotate(12deg) scale(1.08); }
+  }
+
+  .load-caption {
+    font-size: 16px;
+    color: rgba(255,255,255,0.88);
+    background: rgba(255,255,255,0.07);
+    border: 1px solid var(--border);
+    padding: 9px 20px;
+    border-radius: 999px;
+    text-align: center;
+    max-width: 90vw;
+  }
+
+  /* ================= SCREENS ================= */
+  .screen {
+    display: none;
+    flex: 1;
+    flex-direction: column;
+    padding: 14px;
+    max-width: 1120px;
+    width: 100%;
+    margin: 0 auto;
+  }
+  .screen.active { display: flex; }
+
+  #lobbyScreen {
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+
+  .brand-header {
+    text-align: center;
+  }
+  .brand-header h1 {
+    font-size: clamp(28px, 5vw, 40px);
+    background: linear-gradient(90deg, var(--gold), var(--emerald), var(--sky));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 1px;
+  }
+  .brand-header p {
+    font-size: 13px;
+    color: rgba(255,255,255,0.68);
+    margin-top: 2px;
+  }
+
+  .glass-panel {
+    background: var(--panel-bg);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 20px;
+    width: 100%;
+    max-width: 440px;
+    display: flex;
+    flex-direction: column;
+    gap: 13px;
+    box-shadow: 0 20px 44px rgba(0,0,0,0.45);
+  }
+
+  input {
+    width: 100%;
+    padding: 13px 15px;
+    border-radius: 14px;
+    border: 1.5px solid rgba(255,255,255,0.18);
+    background: rgba(8, 11, 20, 0.55);
+    color: #fff;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  input:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(255, 209, 102, 0.16);
+  }
+
+  .btn {
+    padding: 12px 16px;
+    border: none;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.38);
+    transition: transform 0.12s ease, filter 0.15s ease, opacity 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+  }
+  .btn:hover:not(:disabled) { filter: brightness(1.06); }
+  .btn:active:not(:disabled) {
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 rgba(0,0,0,0.38);
+  }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .btn-emerald { background: linear-gradient(135deg, #06d6a0, #059669); color: #062119; }
+  .btn-sky { background: linear-gradient(135deg, #4cc9f0, #2563eb); }
+  .btn-coral { background: linear-gradient(135deg, #ff4d6d, #c9184a); }
+  .btn-gold { background: linear-gradient(135deg, #ffd166, #f59e0b); color: #1d1402; }
+  .btn-slate { background: rgba(255,255,255,0.13); border: 1px solid rgba(255,255,255,0.14); }
+
+  .row { display: flex; gap: 10px; }
+
+  .invite-pill {
+    background: rgba(76, 201, 240, 0.14);
+    border: 1px solid rgba(76, 201, 240, 0.45);
+    border-radius: 14px;
+    padding: 11px 14px;
+    font-size: 13px;
+    text-align: center;
+    line-height: 1.4;
+  }
+
+  .code-box {
+    background: rgba(9, 13, 24, 0.72);
+    border: 1.5px dashed var(--gold);
+    border-radius: 16px;
+    padding: 12px;
+    text-align: center;
+  }
+  .code-box .code-val {
+    font-size: 30px;
+    letter-spacing: 6px;
+    color: var(--gold);
+    font-weight: 700;
+  }
+
+  .link-strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 6px 6px 6px 12px;
+  }
+  .link-strip span {
+    flex: 1;
+    font-size: 12px;
+    color: #c8d6ff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .lobby-players {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    max-height: 195px;
+    overflow-y: auto;
+  }
+  .lobby-player-row {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 12px;
+    padding: 9px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+  }
+  .color-dot {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    display: inline-block;
+    margin-right: 6px;
+  }
+
+  /* ================= GAME LAYOUT ================= */
+  #gameScreen {
+    gap: 10px;
+    padding-bottom: 14px;
+  }
+
+  .top-hud {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 8px 14px;
+    backdrop-filter: blur(12px);
+  }
+
+  .turn-status {
+    font-size: 14px;
+    font-weight: 700;
+    padding: 6px 13px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.09);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .turn-status.is-my-turn {
+    background: var(--gold);
+    color: #161002;
+    animation: pulseTurn 1s infinite alternate;
+  }
+  @keyframes pulseTurn {
+    from { transform: scale(1); }
+    to { transform: scale(1.04); }
+  }
+
+  .game-main-grid {
+    display: grid;
+    grid-template-columns: minmax(280px, 1fr) 310px;
+    gap: 12px;
+    align-items: start;
+  }
+  @media (max-width: 860px) {
+    .game-main-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* ================= PAPAN ULAR TANGGA 10x10 ================= */
+  .board-frame {
+    position: relative;
+    width: 100%;
+    max-width: 620px;
+    aspect-ratio: 1 / 1;
+    margin: 0 auto;
+    border-radius: 22px;
+    padding: 8px;
+    background: linear-gradient(145deg, #27345b, #141a2e);
+    border: 2px solid rgba(255,255,255,0.22);
+    box-shadow: 0 22px 48px rgba(0,0,0,0.55);
+  }
+
+  .board-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border-radius: 16px;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    grid-template-rows: repeat(10, 1fr);
+    background: #13192c;
+  }
+
+  .tile {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 3px 4px;
+    font-size: clamp(9px, 1.5vw, 13px);
+    font-weight: 700;
+    color: rgba(255,255,255,0.78);
+    border: 0.5px solid rgba(255,255,255,0.08);
+  }
+  .tile.t-even { background: #1c2541; }
+  .tile.t-odd  { background: #243054; }
+  .tile.t-start {
+    background: linear-gradient(135deg, rgba(6,214,160,0.34), rgba(76,201,240,0.22));
+    color: var(--emerald);
+  }
+  .tile.t-finish {
+    background: linear-gradient(135deg, rgba(255,209,102,0.42), rgba(255,77,109,0.32));
+    color: var(--gold);
+  }
+  .tile.ladder-start { box-shadow: inset 0 0 0 1.5px rgba(102, 252, 241, 0.45); }
+  .tile.snake-head   { box-shadow: inset 0 0 0 1.5px rgba(255, 77, 109, 0.55); }
+
+  #boardOverlaySvg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 6;
+  }
+
+  #tokensLayer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 12;
+  }
+
+  .player-token {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2.5px solid #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.55);
+    transform: translate(-50%, -50%);
+    transition: left 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+                top 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.22s ease;
+    z-index: 14;
+  }
+  .player-token.hop {
+    transform: translate(-50%, -72%) scale(1.22);
+  }
+  .player-token.sliding {
+    transition: left 0.85s cubic-bezier(0.45, 0.05, 0.55, 0.95),
+                top 0.85s cubic-bezier(0.45, 0.05, 0.55, 0.95),
+                transform 0.85s ease;
+  }
+  .player-token.climbing {
+    transition: left 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+                top 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.8s ease;
+  }
+  .player-token.ko-anim {
+    animation: koSpinShrink 0.65s ease forwards;
+  }
+  @keyframes koSpinShrink {
+    0% { transform: translate(-50%, -50%) scale(1.4) rotate(0deg); filter: brightness(2); }
+    100% { transform: translate(-50%, -50%) scale(0.4) rotate(540deg); opacity: 0.4; }
+  }
+
+  /* ================= PANEL SAMPING: DADU 3D & PEMAIN ================= */
+  .side-column {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .dice-card {
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    backdrop-filter: blur(12px);
+  }
+
+  /* DADU 3D REALISTIS BERPUTAR */
+  .dice-scene {
+    width: 92px;
+    height: 92px;
+    perspective: 460px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .dice-cube {
+    width: 68px;
+    height: 68px;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.95s cubic-bezier(0.18, 0.89, 0.32, 1.18);
+  }
+
+  .dice-cube.rolling {
+    animation: diceTumble3D 0.42s infinite linear;
+  }
+
+  @keyframes diceTumble3D {
+    0%   { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1.08); }
+    25%  { transform: rotateX(180deg) rotateY(90deg) rotateZ(45deg) scale(1.16); }
+    50%  { transform: rotateX(360deg) rotateY(180deg) rotateZ(90deg) scale(1.12); }
+    75%  { transform: rotateX(540deg) rotateY(270deg) rotateZ(135deg) scale(1.16); }
+    100% { transform: rotateX(720deg) rotateY(360deg) rotateZ(180deg) scale(1.08); }
+  }
+
+  .dice-face {
+    position: absolute;
+    width: 68px;
+    height: 68px;
+    border-radius: 15px;
+    background: linear-gradient(145deg, #ffffff, #e6ebf5);
+    border: 2px solid #cbd5e1;
+    box-shadow: inset 0 0 8px rgba(15, 23, 42, 0.14);
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    padding: 9px;
+    place-items: center;
+    backface-visibility: hidden;
+  }
+
+  .pip {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: #111827;
+    box-shadow: inset 0 1px 2px rgba(255,255,255,0.4);
+  }
+  .face-1 .pip { background: var(--coral); width: 14px; height: 14px; }
+  .face-6 .pip { background: #1e3a8a; }
+
+  /* Posisi 6 sisi kubus (34px = setengah dari 68px) */
+  .face-1 { transform: rotateY(0deg) translateZ(34px); }
+  .face-2 { transform: rotateY(90deg) translateZ(34px); }
+  .face-3 { transform: rotateX(90deg) translateZ(34px); }
+  .face-4 { transform: rotateX(-90deg) translateZ(34px); }
+  .face-5 { transform: rotateY(-90deg) translateZ(34px); }
+  .face-6 { transform: rotateY(180deg) translateZ(34px); }
+
+  /* Grid pip 3x3 untuk angka 1-6 */
+  .p-tl { grid-area: 1 / 1; }
+  .p-tm { grid-area: 1 / 2; }
+  .p-tr { grid-area: 1 / 3; }
+  .p-ml { grid-area: 2 / 1; }
+  .p-mm { grid-area: 2 / 2; }
+  .p-mr { grid-area: 2 / 3; }
+  .p-bl { grid-area: 3 / 1; }
+  .p-bm { grid-area: 3 / 2; }
+  .p-br { grid-area: 3 / 3; }
+
+  .dice-result-badge {
+    font-size: 13px;
+    color: var(--gold);
+    min-height: 18px;
+    text-align: center;
+  }
+
+  /* Daftar Pemain di Papan */
+  .roster-card {
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    backdrop-filter: blur(12px);
+  }
+  .roster-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.85);
+    display: flex;
+    justify-content: space-between;
+  }
+  .roster-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 7px;
+  }
+  .roster-item {
+    background: rgba(255,255,255,0.06);
+    border: 1.5px solid rgba(255,255,255,0.08);
+    border-radius: 13px;
+    padding: 7px 9px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: 12px;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .roster-item.active {
+    border-color: var(--gold);
+    background: rgba(255, 209, 102, 0.14);
+    transform: scale(1.02);
+  }
+  .roster-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+  .roster-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 72px;
+    font-weight: 600;
+  }
+  .roster-pos {
+    background: rgba(0,0,0,0.4);
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-weight: 700;
+    color: var(--emerald);
+    flex-shrink: 0;
+  }
+
+  /* Emoji Reactions */
+  .emoji-dock {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+  }
+  .emo-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.08);
+    font-size: 19px;
+    cursor: pointer;
+    transition: transform 0.14s;
+  }
+  .emo-btn:active { transform: scale(1.28); }
+
+  .float-emo {
+    position: fixed;
+    font-size: 40px;
+    pointer-events: none;
+    z-index: 450;
+    animation: riseEmo 1.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  @keyframes riseEmo {
+    0%   { transform: translateY(0) scale(0.5); opacity: 0; }
+    20%  { transform: translateY(-25px) scale(1.2); opacity: 1; }
+    100% { transform: translateY(-190px) scale(0.95); opacity: 0; }
+  }
+
+  /* ELEGAN TOAST (TANPA ALERT BAWAAN) */
+  .toast-layer {
+    position: fixed;
+    top: 15%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 700;
+    pointer-events: none;
+    max-width: 92vw;
+  }
+  .toast-box {
+    background: rgba(15, 20, 36, 0.94);
+    backdrop-filter: blur(14px);
+    color: #fff;
+    border: 1.5px solid rgba(255, 209, 102, 0.72);
+    border-radius: 999px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    box-shadow: 0 14px 30px rgba(0,0,0,0.55);
+    opacity: 0;
+    transform: translateY(-12px) scale(0.95);
+    transition: opacity 0.25s ease, transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .toast-box.show {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  /* ELEGAN MODAL */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(6, 9, 18, 0.76);
+    backdrop-filter: blur(8px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 800;
+  }
+  .modal-backdrop.active { display: flex; }
+
+  .modal-card {
+    background: rgba(24, 31, 54, 0.97);
+    border: 1.5px solid var(--border);
+    border-radius: 24px;
+    padding: 24px 20px;
+    width: 100%;
+    max-width: 350px;
+    text-align: center;
+    box-shadow: 0 24px 54px rgba(0,0,0,0.65);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    animation: modalPop 0.26s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes modalPop {
+    0% { transform: scale(0.85); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .modal-card .m-icon { font-size: 44px; }
+  .modal-card .m-title { font-size: 21px; font-weight: 700; color: var(--gold); }
+  .modal-card .m-desc { font-size: 14px; color: rgba(255,255,255,0.84); line-height: 1.45; }
+  .modal-card .m-btns { display: flex; gap: 10px; margin-top: 6px; }
+  .modal-card .m-btns .btn { flex: 1; padding: 11px 14px; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<!-- LOADING SCREEN -->
+<div id="loadingScreen">
+  <div class="load-spinner">🎲</div>
+  <div class="load-caption" id="loadCaption">Menyiapkan papan 100 petak & ular-ular jahil...</div>
+</div>
+
+<!-- ELEGAN TOAST -->
+<div class="toast-layer">
+  <div class="toast-box" id="toastBox"></div>
+</div>
+
+<!-- ELEGAN MODAL -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal-card">
+    <div class="m-icon" id="mIcon">🏆</div>
+    <div class="m-title" id="mTitle">Judul</div>
+    <div class="m-desc" id="mDesc">Deskripsi</div>
+    <div class="m-btns" id="mBtns"></div>
+  </div>
+</div>
+
+<!-- LOBBY SCREEN -->
+<div id="lobbyScreen" class="screen active">
+  <div class="brand-header">
+    <h1>ULAR TANGGA P2P</h1>
+    <p>1–8 Pemain • Dadu 3D Real • KO Kembali ke Awal • Tanpa Firebase</p>
+  </div>
+
+  <div class="glass-panel" id="entryPanel">
+    <div class="invite-pill" id="inviteBanner" style="display:none;">
+      🔗 Undangan Room <strong id="invitedCodeText" style="color:var(--gold);">-----</strong>! Tulis namamu lalu langsung gabung.
+    </div>
+
+    <input type="text" id="nameInput" placeholder="Masukkan Nama Kamu" maxlength="12">
+
+    <div id="createSection">
+      <button class="btn btn-emerald" style="width:100%;" onclick="createRoom()">👑 Buat Room Baru (Host)</button>
+    </div>
+
+    <div id="joinSection">
+      <div style="text-align:center; font-size:12px; opacity:0.6; margin-bottom:9px;">— ATAU MASUK ROOM —</div>
+      <div class="row">
+        <input type="text" id="codeInput" placeholder="KODE 5 HURUF" maxlength="5" style="text-transform:uppercase; text-align:center; font-weight:700; letter-spacing:3px;">
+        <button class="btn btn-sky" id="joinBtn" onclick="joinRoom()">Gabung</button>
+      </div>
+    </div>
+
+    <div id="lobbyHint" style="text-align:center; font-size:13px; color:var(--gold); min-height:18px;"></div>
+  </div>
+
+  <div class="glass-panel" id="roomPanel" style="display:none;">
+    <div class="code-box">
+      <div style="font-size:11px; opacity:0.75;">KODE ROOM</div>
+      <div class="code-val" id="roomCodeDisplay">-----</div>
+    </div>
+
+    <div class="link-strip">
+      <span id="shareLinkPreview">-</span>
+      <button class="btn btn-gold" style="padding:8px 11px; font-size:12px; border-radius:10px;" onclick="copyInviteLink()">📋 Salin</button>
+    </div>
+    <button class="btn btn-sky" style="padding:10px 14px; font-size:13px;" onclick="shareInviteLink()">📤 Bagikan Link ke Chat</button>
+
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <strong id="playerSlotLabel">Pemain (1/8)</strong>
+      <button class="btn btn-slate" id="addBotBtn" style="padding:7px 11px; font-size:12px;" onclick="addBot()">🤖 + Bot AI</button>
+    </div>
+
+    <div class="lobby-players" id="lobbyPlayerList"></div>
+
+    <button class="btn btn-emerald" id="startBtn" onclick="startGame()" style="display:none;">🎲 Mulai Permainan!</button>
+    <div id="waitHostLabel" style="text-align:center; font-size:13px; opacity:0.75; display:none;">Menunggu Host memulai permainan...</div>
+  </div>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="gameScreen" class="screen">
+  <div class="top-hud">
+    <div class="turn-status" id="turnStatusBadge">Menunggu giliran...</div>
+    <div style="display:flex; gap:6px;">
+      <button class="btn btn-slate" style="padding:7px 11px; font-size:12px;" id="soundToggleBtn" onclick="toggleMute()">🔊 Suara</button>
+      <button class="btn btn-coral" style="padding:7px 11px; font-size:12px;" onclick="confirmExit()">Keluar</button>
+    </div>
+  </div>
+
+  <div class="game-main-grid">
+    <!-- PAPAN UTAMA -->
+    <div class="board-frame">
+      <div class="board-inner" id="boardGrid"></div>
+      <svg id="boardOverlaySvg" viewBox="0 0 1000 1000" preserveAspectRatio="none"></svg>
+      <div id="tokensLayer"></div>
+    </div>
+
+    <!-- PANEL DADU 3D & DAFTAR PEMAIN -->
+    <div class="side-column">
+      <div class="dice-card">
+        <div class="dice-scene">
+          <div class="dice-cube" id="diceCube">
+            <!-- Sisi 1 (tengah merah) -->
+            <div class="dice-face face-1"><span class="pip p-mm"></span></div>
+            <!-- Sisi 2 -->
+            <div class="dice-face face-2"><span class="pip p-tr"></span><span class="pip p-bl"></span></div>
+            <!-- Sisi 3 -->
+            <div class="dice-face face-3"><span class="pip p-tr"></span><span class="pip p-mm"></span><span class="pip p-bl"></span></div>
+            <!-- Sisi 4 -->
+            <div class="dice-face face-4"><span class="pip p-tl"></span><span class="pip p-tr"></span><span class="pip p-bl"></span><span class="pip p-br"></span></div>
+            <!-- Sisi 5 -->
+            <div class="dice-face face-5"><span class="pip p-tl"></span><span class="pip p-tr"></span><span class="pip p-mm"></span><span class="pip p-bl"></span><span class="pip p-br"></span></div>
+            <!-- Sisi 6 -->
+            <div class="dice-face face-6"><span class="pip p-tl"></span><span class="pip p-ml"></span><span class="pip p-bl"></span><span class="pip p-tr"></span><span class="pip p-mr"></span><span class="pip p-br"></span></div>
+          </div>
+        </div>
+
+        <button class="btn btn-gold" id="rollDiceBtn" style="width:100%;" onclick="requestRollDice()">🎲 Kocok Dadu</button>
+        <div class="dice-result-badge" id="diceResultText">Siap mengocok dadu!</div>
+
+        <div class="emoji-dock">
+          <button class="emo-btn" onclick="sendEmo('😂')">😂</button>
+          <button class="emo-btn" onclick="sendEmo('💀')">💀</button>
+          <button class="emo-btn" onclick="sendEmo('🐍')">🐍</button>
+          <button class="emo-btn" onclick="sendEmo('🪜')">🪜</button>
+          <button class="emo-btn" onclick="sendEmo('😈')">😈</button>
+        </div>
+      </div>
+
+      <div class="roster-card">
+        <div class="roster-title">
+          <span>Pemain di Meja</span>
+          <span id="rosterCount">0/8</span>
+        </div>
+        <div class="roster-grid" id="rosterGrid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= EFEK SUARA LUCU (WEB AUDIO API) ================= */
+const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+let actx = null;
+let muted = false;
+
+function toggleMute() {
+  muted = !muted;
+  document.getElementById('soundToggleBtn').textContent = muted ? '🔇 Bisukan' : '🔊 Suara';
+  if (!muted) playSfx('pop');
+}
+
+function playSfx(kind) {
+  if (muted) return;
+  try {
+    if (!actx) actx = new AudioContextClass();
+    if (actx.state === 'suspended') actx.resume();
+    const now = actx.currentTime;
+    const osc = actx.createOscillator();
+    const gain = actx.createGain();
+    osc.connect(gain);
+    gain.connect(actx.destination);
+
+    if (kind === 'diceTick') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(240 + Math.random() * 260, now);
+      gain.gain.setValueAtTime(0.11, now);
+      gain.gain.exponentialRampToValueAtTime(0.005, now + 0.055);
+      osc.start(now);
+      osc.stop(now + 0.055);
+    } else if (kind === 'hop') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(340, now);
+      osc.frequency.exponentialRampToValueAtTime(620, now + 0.11);
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.008, now + 0.11);
+      osc.start(now);
+      osc.stop(now + 0.11);
+    } else if (kind === 'ladder') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(330, now);
+      osc.frequency.exponentialRampToValueAtTime(980, now + 0.55);
+      gain.gain.setValueAtTime(0.22, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.56);
+      osc.start(now);
+      osc.stop(now + 0.56);
+    } else if (kind === 'snake') {
+      // Suara meluncur turun lucu ala slide whistle
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(860, now);
+      osc.frequency.exponentialRampToValueAtTime(140, now + 0.68);
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.7);
+      osc.start(now);
+      osc.stop(now + 0.7);
+    } else if (kind === 'ko') {
+      // Suara bonk / KO lucu saat menabrak bidak lawan
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(420, now);
+      osc.frequency.setValueAtTime(190, now + 0.1);
+      osc.frequency.exponentialRampToValueAtTime(75, now + 0.36);
+      gain.gain.setValueAtTime(0.22, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.38);
+      osc.start(now);
+      osc.stop(now + 0.38);
+    } else if (kind === 'win') {
+      osc.type = 'triangle';
+      [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
+        osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+      });
+      gain.gain.setValueAtTime(0.22, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.65);
+      osc.start(now);
+      osc.stop(now + 0.65);
+    } else {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(460, now);
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.005, now + 0.08);
+      osc.start(now);
+      osc.stop(now + 0.08);
+    }
+  } catch (e) {}
+}
+
+/* ================= TOAST & MODAL ELEGAN ================= */
+function showToast(msg, ms = 2400) {
+  const box = document.getElementById('toastBox');
+  box.textContent = msg;
+  box.classList.add('show');
+  clearTimeout(box._timer);
+  box._timer = setTimeout(() => box.classList.remove('show'), ms);
+}
+
+function showModal({ icon = '🎲', title = '', desc = '', buttons = [] }) {
+  document.getElementById('mIcon').textContent = icon;
+  document.getElementById('mTitle').textContent = title;
+  document.getElementById('mDesc').textContent = desc;
+  const wrap = document.getElementById('mBtns');
+  wrap.innerHTML = '';
+  buttons.forEach(b => {
+    const btn = document.createElement('button');
+    btn.className = `btn ${b.cls || 'btn-sky'}`;
+    btn.textContent = b.text;
+    btn.onclick = () => {
+      document.getElementById('modalBackdrop').classList.remove('active');
+      if (typeof b.onClick === 'function') b.onClick();
+    };
+    wrap.appendChild(btn);
+  });
+  document.getElementById('modalBackdrop').classList.add('active');
+}
+
+/* ================= LOADING ================= */
+const loadPhrases = [
+  "Menyiapkan papan 100 petak & ular-ular jahil...",
+  "Memoles dadu 3D biar putarannya makin mantap...",
+  "Menyusun tangga keberuntungan menuju petak 100...",
+  "Menghubungkan jalur P2P antar HP..."
+];
+let lIdx = 0;
+const lInterval = setInterval(() => {
+  lIdx = (lIdx + 1) % loadPhrases.length;
+  const el = document.getElementById('loadCaption');
+  if (el) el.textContent = loadPhrases[lIdx];
+}, 850);
+
+/* ================= DATA PAPAN ULAR TANGGA (1 - 100) ================= */
+// Tangga: [bawah, atas]
+const LADDERS = {
+  4: 25,
+  13: 46,
+  33: 49,
+  42: 63,
+  50: 69,
+  62: 81,
+  74: 92
+};
+
+// Ular: [kepala (atas), ekor (bawah)]
+const SNAKES = {
+  27: 5,
+  40: 3,
+  43: 18,
+  54: 31,
+  66: 45,
+  89: 53,
+  99: 41
+};
+
+// Konversi nomor petak 1..100 ke koordinat grid (row 0..9 dari atas, col 0..9 dari kiri)
+function getTileGridRC(pos) {
+  if (pos <= 0) return { row: 9, col: -0.6 };
+  const clamped = Math.min(pos, 100);
+  const zeroBased = clamped - 1;
+  const rowFromBottom = Math.floor(zeroBased / 10); // 0 = baris paling bawah (1..10)
+  const inRow = zeroBased % 10;
+  const col = (rowFromBottom % 2 === 0) ? inRow : (9 - inRow); // boustrophedon (zigzag)
+  const row = 9 - rowFromBottom; // 0 = baris paling atas (91..100)
+  return { row, col };
+}
+
+// Koordinat persen (0..100) untuk posisi token di papan
+function getTilePercentXY(pos, slotOffset = { dx: 0, dy: 0 }) {
+  if (pos <= 0) {
+    return { x: 4 + slotOffset.dx * 0.4, y: 95 + slotOffset.dy * 0.4 };
+  }
+  const { row, col } = getTileGridRC(pos);
+  const cx = (col + 0.5) * 10 + slotOffset.dx;
+  const cy = (row + 0.5) * 10 + slotOffset.dy;
+  return { x: cx, y: cy };
+}
+
+function buildBoardUI() {
+  const grid = document.getElementById('boardGrid');
+  grid.innerHTML = '';
+
+  // Render petak visual dari atas (row 0) ke bawah (row 9)
+  for (let r = 0; r < 10; r++) {
+    const rowFromBottom = 9 - r;
+    for (let c = 0; c < 10; c++) {
+      const inRow = (rowFromBottom % 2 === 0) ? c : (9 - c);
+      const tileNum = rowFromBottom * 10 + inRow + 1;
+
+      const div = document.createElement('div');
+      let cls = 'tile ' + ((rowFromBottom + c) % 2 === 0 ? 't-even' : 't-odd');
+      if (tileNum === 1) cls += ' t-start';
+      if (tileNum === 100) cls += ' t-finish';
+      if (LADDERS[tileNum]) cls += ' ladder-start';
+      if (SNAKES[tileNum]) cls += ' snake-head';
+
+      div.className = cls;
+      div.textContent = tileNum === 100 ? '👑100' : tileNum;
+      grid.appendChild(div);
+    }
+  }
+
+  drawSnakesAndLaddersSVG();
+}
+
+function drawSnakesAndLaddersSVG() {
+  const svg = document.getElementById('boardOverlaySvg');
+  svg.innerHTML = '';
+
+  // Gambar Tangga (di SVG viewBox 0..1000)
+  Object.entries(LADDERS).forEach(([fromStr, toStr]) => {
+    const from = Number(fromStr);
+    const to = Number(toStr);
+    const p1 = getTileGridRC(from);
+    const p2 = getTileGridRC(to);
+    const x1 = (p1.col + 0.5) * 100;
+    const y1 = (p1.row + 0.5) * 100;
+    const x2 = (p2.col + 0.5) * 100;
+    const y2 = (p2.row + 0.5) * 100;
+
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = (-dy / len) * 16;
+    const ny = (dx / len) * 16;
+
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+
+    // Rel kiri & kanan
+    const rail1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    rail1.setAttribute('x1', x1 + nx); rail1.setAttribute('y1', y1 + ny);
+    rail1.setAttribute('x2', x2 + nx); rail1.setAttribute('y2', y2 + ny);
+    rail1.setAttribute('stroke', '#ffd166');
+    rail1.setAttribute('stroke-width', '8');
+    rail1.setAttribute('stroke-linecap', 'round');
+    rail1.setAttribute('opacity', '0.9');
+
+    const rail2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    rail2.setAttribute('x1', x1 - nx); rail2.setAttribute('y1', y1 - ny);
+    rail2.setAttribute('x2', x2 - nx); rail2.setAttribute('y2', y2 - ny);
+    rail2.setAttribute('stroke', '#ffd166');
+    rail2.setAttribute('stroke-width', '8');
+    rail2.setAttribute('stroke-linecap', 'round');
+    rail2.setAttribute('opacity', '0.9');
+
+    g.appendChild(rail1);
+    g.appendChild(rail2);
+
+    // Anak tangga
+    const steps = Math.max(3, Math.floor(len / 42));
+    for (let s = 1; s < steps; s++) {
+      const t = s / steps;
+      const sx = x1 + dx * t;
+      const sy = y1 + dy * t;
+      const rung = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      rung.setAttribute('x1', sx + nx * 0.95);
+      rung.setAttribute('y1', sy + ny * 0.95);
+      rung.setAttribute('x2', sx - nx * 0.95);
+      rung.setAttribute('y2', sy - ny * 0.95);
+      rung.setAttribute('stroke', '#fff3b0');
+      rung.setAttribute('stroke-width', '5.5');
+      rung.setAttribute('stroke-linecap', 'round');
+      g.appendChild(rung);
+    }
+
+    svg.appendChild(g);
+  });
+
+  // Gambar Ular berkelok
+  const snakePalette = ['#ff4d6d', '#c77dff', '#ff7b00', '#00bbf9', '#ef476f', '#8338ec', '#fb5607'];
+  Object.entries(SNAKES).forEach(([headStr, tailStr], idx) => {
+    const head = Number(headStr);
+    const tail = Number(tailStr);
+    const pHead = getTileGridRC(head);
+    const pTail = getTileGridRC(tail);
+    const x0 = (pHead.col + 0.5) * 100;
+    const y0 = (pHead.row + 0.5) * 100;
+    const x3 = (pTail.col + 0.5) * 100;
+    const y3 = (pTail.row + 0.5) * 100;
+
+    const dx = x3 - x0;
+    const dy = y3 - y0;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = (-dy / len) * 42;
+    const ny = (dx / len) * 42;
+
+    const c1x = x0 + dx * 0.33 + nx;
+    const c1y = y0 + dy * 0.33 + ny;
+    const c2x = x0 + dx * 0.66 - nx;
+    const c2y = y0 + dy * 0.66 - ny;
+
+    const color = snakePalette[idx % snakePalette.length];
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', `M ${x0} ${y0} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${x3} ${y3}`);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', color);
+    path.setAttribute('stroke-width', '13');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('opacity', '0.88');
+
+    const stripe = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    stripe.setAttribute('d', `M ${x0} ${y0} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${x3} ${y3}`);
+    stripe.setAttribute('fill', 'none');
+    stripe.setAttribute('stroke', 'rgba(255,255,255,0.35)');
+    stripe.setAttribute('stroke-width', '4');
+    stripe.setAttribute('stroke-dasharray', '10 14');
+    stripe.setAttribute('stroke-linecap', 'round');
+
+    // Kepala ular
+    const headCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    headCircle.setAttribute('cx', x0);
+    headCircle.setAttribute('cy', y0);
+    headCircle.setAttribute('r', '13');
+    headCircle.setAttribute('fill', color);
+    headCircle.setAttribute('stroke', '#fff');
+    headCircle.setAttribute('stroke-width', '3');
+
+    svg.appendChild(path);
+    svg.appendChild(stripe);
+    svg.appendChild(headCircle);
+  });
+}
+
+/* ================= ROTASI DADU 3D KE ANGKA 1..6 ================= */
+const DICE_ROTATIONS = {
+  1: 'rotateX(0deg) rotateY(0deg)',
+  2: 'rotateX(0deg) rotateY(-90deg)',
+  3: 'rotateX(-90deg) rotateY(0deg)',
+  4: 'rotateX(90deg) rotateY(0deg)',
+  5: 'rotateX(0deg) rotateY(90deg)',
+  6: 'rotateX(0deg) rotateY(180deg)'
+};
+
+function setDiceFaceImmediate(val) {
+  const cube = document.getElementById('diceCube');
+  cube.classList.remove('rolling');
+  cube.style.transform = DICE_ROTATIONS[val] || DICE_ROTATIONS[1];
+}
+
+/* ================= PEERJS P2P MULTIPLAYER (1-8 PEMAIN) ================= */
+const PEER_PREFIX = "ULTANGGA2026-";
+const PLAYER_THEMES = [
+  { avatar: "🦊", color: "#ff4d6d" },
+  { avatar: "🐼", color: "#4cc9f0" },
+  { avatar: "🐸", color: "#06d6a0" },
+  { avatar: "🐯", color: "#ffd166" },
+  { avatar: "🦄", color: "#c77dff" },
+  { avatar: "🐧", color: "#3a86ff" },
+  { avatar: "🐵", color: "#fb8500" },
+  { avatar: "🐙", color: "#ff006e" }
+];
+
+let peer = null;
+let isHost = false;
+let myId = "";
+let myName = "";
+let hostConn = null;
+let clientConns = {};
+let isTurnAnimating = false;
+let activeRoomCode = "";
+let isInvitedLink = false;
+let lastWinnerHandled = null;
+
+// Visual state lokal untuk animasi langkah demi langkah
+let visualPositions = {}; // playerId -> pos (0..100)
+
+let gameState = {
+  started: false,
+  players: [], // { id, name, avatar, color, isBot, pos }
+  turnIndex: 0,
+  lastDice: 1,
+  winner: null
+};
+
+function generateCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let s = "";
+  for (let i = 0; i < 5; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+function buildInviteUrl(code) {
+  const u = new URL(window.location.href);
+  u.searchParams.set('room', code);
+  return u.toString();
+}
+
+function initInviteParams() {
+  const params = new URLSearchParams(window.location.search);
+  const code = (params.get('room') || '').trim().toUpperCase().slice(0, 5);
+  if (code.length >= 4) {
+    isInvitedLink = true;
+    document.getElementById('codeInput').value = code;
+    document.getElementById('invitedCodeText').textContent = code;
+    document.getElementById('inviteBanner').style.display = 'block';
+    document.getElementById('createSection').style.display = 'none';
+    document.getElementById('joinBtn').textContent = 'Gabung Room';
+  }
+}
+
+function setRoomLinkUI(code) {
+  activeRoomCode = code;
+  document.getElementById('roomCodeDisplay').textContent = code;
+  document.getElementById('shareLinkPreview').textContent = buildInviteUrl(code);
+}
+
+function copyInviteLink() {
+  if (!activeRoomCode) return;
+  const link = buildInviteUrl(activeRoomCode);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(link).then(() => showToast("📋 Link room tersalin!"))
+      .catch(() => legacyCopy(link));
+  } else {
+    legacyCopy(link);
+  }
+}
+
+function legacyCopy(txt) {
+  const ta = document.createElement('textarea');
+  ta.value = txt;
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  ta.remove();
+  showToast("📋 Link room tersalin!");
+}
+
+async function shareInviteLink() {
+  if (!activeRoomCode) return;
+  const link = buildInviteUrl(activeRoomCode);
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: 'Mabar Ular Tangga P2P!',
+        text: `Yuk main Ular Tangga (bisa sampai 8 orang)! Klik link ini, isi nama, lalu gabung (Kode: ${activeRoomCode})`,
+        url: link
+      });
+    } catch (e) {}
+  } else {
+    copyInviteLink();
+  }
+}
+
+window.addEventListener('load', () => {
+  buildBoardUI();
+  initInviteParams();
+  setTimeout(() => {
+    clearInterval(lInterval);
+    document.getElementById('loadingScreen').classList.add('hidden');
+  }, 1500);
+});
+
+/* ================= LOBBY ACTIONS ================= */
+function createRoom() {
+  myName = document.getElementById('nameInput').value.trim() || "Host Seru";
+  const code = generateCode();
+  document.getElementById('lobbyHint').textContent = "Membuka koneksi P2P...";
+
+  peer = new Peer(PEER_PREFIX + code, {
+    config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+  });
+
+  peer.on('open', (id) => {
+    isHost = true;
+    myId = id;
+    gameState.players = [{
+      id: myId,
+      name: myName,
+      avatar: PLAYER_THEMES[0].avatar,
+      color: PLAYER_THEMES[0].color,
+      isBot: false,
+      pos: 0
+    }];
+
+    document.getElementById('lobbyHint').textContent = "";
+    document.getElementById('entryPanel').style.display = 'none';
+    document.getElementById('roomPanel').style.display = 'flex';
+    setRoomLinkUI(code);
+    document.getElementById('startBtn').style.display = 'inline-flex';
+    renderLobbyList();
+  });
+
+  peer.on('connection', (conn) => {
+    conn.on('data', (data) => handleHostData(conn, data));
+    conn.on('close', () => {
+      delete clientConns[conn.peer];
+      gameState.players = gameState.players.filter(p => p.id !== conn.peer);
+      if (gameState.turnIndex >= gameState.players.length) gameState.turnIndex = 0;
+      broadcastState();
+      renderLobbyList();
+    });
+  });
+
+  peer.on('error', (err) => {
+    document.getElementById('lobbyHint').textContent = "Gagal membuat room: " + err.type;
+  });
+}
+
+function joinRoom() {
+  const typedName = document.getElementById('nameInput').value.trim();
+  if (isInvitedLink && !typedName) {
+    showToast("✍️ Isi nama kamu dulu sebelum gabung!");
+    document.getElementById('nameInput').focus();
+    return;
+  }
+  myName = typedName || "Pemain";
+  const code = document.getElementById('codeInput').value.trim().toUpperCase();
+  if (code.length < 4) {
+    document.getElementById('lobbyHint').textContent = "Masukkan kode room yang valid!";
+    return;
+  }
+
+  document.getElementById('lobbyHint').textContent = "Menghubungkan ke Host...";
+  peer = new Peer({
+    config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+  });
+
+  peer.on('open', (id) => {
+    myId = id;
+    hostConn = peer.connect(PEER_PREFIX + code, { reliable: true });
+
+    hostConn.on('open', () => {
+      hostConn.send({ type: 'JOIN', name: myName });
+      document.getElementById('lobbyHint').textContent = "";
+      document.getElementById('entryPanel').style.display = 'none';
+      document.getElementById('roomPanel').style.display = 'flex';
+      setRoomLinkUI(code);
+      document.getElementById('addBotBtn').style.display = 'none';
+      document.getElementById('waitHostLabel').style.display = 'block';
+    });
+
+    hostConn.on('data', (data) => handleClientData(data));
+    hostConn.on('close', () => {
+      showModal({
+        icon: '🔌',
+        title: 'Koneksi Terputus',
+        desc: 'Koneksi ke Host terputus atau room sudah selesai.',
+        buttons: [{ text: 'Kembali', cls: 'btn-sky', onClick: () => resetToLobby() }]
+      });
+    });
+  });
+
+  peer.on('error', () => {
+    document.getElementById('lobbyHint').textContent = "Room tidak ditemukan! Pastikan kode benar.";
+  });
+}
+
+function addBot() {
+  if (!isHost || gameState.players.length >= 8) return;
+  const botNames = ["Bot Gesit", "Bot Hoki", "Bot Jahil", "Bot Santuy", "Bot Ngebut", "Bot Kilat", "Bot Kocak"];
+  const idx = gameState.players.length;
+  const theme = PLAYER_THEMES[idx % PLAYER_THEMES.length];
+  gameState.players.push({
+    id: "BOT_" + Date.now() + "_" + idx,
+    name: botNames[idx % botNames.length],
+    avatar: theme.avatar,
+    color: theme.color,
+    isBot: true,
+    pos: 0
+  });
+  playSfx('pop');
+  broadcastState();
+  renderLobbyList();
+}
+
+function renderLobbyList() {
+  document.getElementById('playerSlotLabel').textContent = `Pemain (${gameState.players.length}/8)`;
+  document.getElementById('lobbyPlayerList').innerHTML = gameState.players.map((p, i) => `
+    <div class="lobby-player-row">
+      <span><span class="color-dot" style="background:${p.color};"></span>${p.avatar} <strong>${p.name}</strong> ${p.id === myId ? '(Kamu)' : ''}</span>
+      <span style="font-size:12px; opacity:0.75;">${i === 0 ? '👑 Host' : (p.isBot ? '🤖 AI' : '📱 HP')}</span>
+    </div>
+  `).join('');
+}
+
+function resetToLobby() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete('room');
+  window.history.replaceState({}, '', url.toString());
+  window.location.reload();
+}
+
+function confirmExit() {
+  showModal({
+    icon: '🚪',
+    title: 'Keluar Permainan?',
+    desc: 'Kamu akan keluar dari papan Ular Tangga ini.',
+    buttons: [
+      { text: 'Batal', cls: 'btn-slate' },
+      { text: 'Keluar', cls: 'btn-coral', onClick: () => resetToLobby() }
+    ]
+  });
+}
+
+/* ================= NETWORK SYNC ================= */
+function sendToHost(payload) {
+  if (isHost) {
+    processHostAction(payload);
+  } else if (hostConn && hostConn.open) {
+    hostConn.send(payload);
+  }
+}
+
+function broadcast(msg) {
+  Object.values(clientConns).forEach(c => {
+    if (c.open) c.send(msg);
+  });
+}
+
+function broadcastState(turnAnimData = null) {
+  broadcast({ type: 'STATE_UPDATE', state: gameState, turnAnimData });
+  applyTurnUpdate(gameState, turnAnimData);
+}
+
+function handleHostData(conn, data) {
+  if (data.type === 'JOIN') {
+    if (gameState.started || gameState.players.length >= 8) {
+      conn.close();
+      return;
+    }
+    clientConns[conn.peer] = conn;
+    const idx = gameState.players.length;
+    const theme = PLAYER_THEMES[idx % PLAYER_THEMES.length];
+    gameState.players.push({
+      id: conn.peer,
+      name: data.name,
+      avatar: theme.avatar,
+      color: theme.color,
+      isBot: false,
+      pos: 0
+    });
+    broadcastState();
+    renderLobbyList();
+  } else {
+    processHostAction(data);
+  }
+}
+
+function handleClientData(data) {
+  if (data.type === 'GAME_START') {
+    enterGameBoard(data.state);
+  } else if (data.type === 'STATE_UPDATE') {
+    if (!data.state.started) {
+      gameState = data.state;
+      renderLobbyList();
+    } else {
+      applyTurnUpdate(data.state, data.turnAnimData);
+    }
+  }
+}
+
+/* ================= GAMEPLAY & ANIMASI PENUH ================= */
+function startGame() {
+  if (!isHost) return;
+  lastWinnerHandled = null;
+  gameState.started = true;
+  gameState.winner = null;
+  gameState.turnIndex = 0;
+  gameState.lastDice = 1;
+  gameState.players.forEach(p => { p.pos = 0; });
+
+  broadcast({ type: 'GAME_START', state: gameState });
+  enterGameBoard(gameState);
+}
+
+function enterGameBoard(state) {
+  gameState = state;
+  visualPositions = {};
+  state.players.forEach(p => { visualPositions[p.id] = p.pos || 0; });
+
+  document.getElementById('modalBackdrop').classList.remove('active');
+  document.getElementById('lobbyScreen').classList.remove('active');
+  document.getElementById('gameScreen').classList.add('active');
+
+  setDiceFaceImmediate(state.lastDice || 1);
+  renderTokensAndRoster(state);
+  showToast("🎲 Permainan dimulai! Adu cepat ke petak 100!");
+
+  if (isHost) scheduleBotIfNeeded();
+}
+
+function requestRollDice() {
+  if (isTurnAnimating || gameState.winner) return;
+  const active = gameState.players[gameState.turnIndex];
+  if (!active || active.id !== myId) {
+    showToast("⏳ Sabar ya, belum giliranmu!");
+    return;
+  }
+  sendToHost({ type: 'ROLL_DICE', playerId: myId });
+}
+
+function sendEmo(emo) {
+  sendToHost({ type: 'EMOJI', senderId: myId, emo });
+}
+
+function processHostAction(action) {
+  if (!isHost) return;
+
+  if (action.type === 'EMOJI') {
+    broadcastState({ kind: 'EMOJI', senderId: action.senderId, emo: action.emo });
+    return;
+  }
+
+  if (action.type === 'ROLL_DICE') {
+    if (gameState.winner) return;
+    const player = gameState.players[gameState.turnIndex];
+    if (!player || player.id !== action.playerId) return;
+
+    const dice = Math.floor(Math.random() * 6) + 1;
+    gameState.lastDice = dice;
+
+    const startPos = player.pos;
+    let intermediatePos = startPos + dice;
+    let bouncedBack = false;
+
+    // Jika melewati 100, pantul balik dari 100
+    if (intermediatePos > 100) {
+      intermediatePos = 100 - (intermediatePos - 100);
+      bouncedBack = true;
+    }
+
+    let finalPos = intermediatePos;
+    let specialEvent = null; // 'ladder' | 'snake' | null
+
+    if (LADDERS[finalPos]) {
+      specialEvent = { type: 'ladder', from: finalPos, to: LADDERS[finalPos] };
+      finalPos = LADDERS[finalPos];
+    } else if (SNAKES[finalPos]) {
+      specialEvent = { type: 'snake', from: finalPos, to: SNAKES[finalPos] };
+      finalPos = SNAKES[finalPos];
+    }
+
+    // Cek tabrakan dengan bidak lawan (jika finalPos > 0 dan < 100): lawan KO kembali ke 0!
+    const koVictims = [];
+    if (finalPos > 0 && finalPos < 100) {
+      gameState.players.forEach(other => {
+        if (other.id !== player.id && other.pos === finalPos) {
+          other.pos = 0;
+          koVictims.push({ id: other.id, name: other.name, avatar: other.avatar });
+        }
+      });
+    }
+
+    player.pos = finalPos;
+
+    let winnerName = null;
+    if (finalPos === 100) {
+      gameState.winner = player.name;
+      winnerName = player.name;
+    }
+
+    const nextTurn = (gameState.turnIndex + 1) % gameState.players.length;
+    if (!winnerName) {
+      gameState.turnIndex = nextTurn;
+    }
+
+    const animPayload = {
+      kind: 'DICE_TURN',
+      playerId: player.id,
+      playerName: player.name,
+      playerAvatar: player.avatar,
+      dice,
+      startPos,
+      intermediatePos,
+      bouncedBack,
+      specialEvent,
+      finalPos,
+      koVictims,
+      winnerName
+    };
+
+    broadcastState(animPayload);
+
+    if (!winnerName) {
+      scheduleBotIfNeeded();
+    }
+  }
+}
+
+function scheduleBotIfNeeded() {
+  if (!isHost || gameState.winner) return;
+  const curr = gameState.players[gameState.turnIndex];
+  if (!curr || !curr.isBot) return;
+
+  setTimeout(() => {
+    if (gameState.winner || isTurnAnimating) return;
+    const bot = gameState.players[gameState.turnIndex];
+    if (bot && bot.isBot) {
+      processHostAction({ type: 'ROLL_DICE', playerId: bot.id });
+    }
+  }, 1350);
+}
+
+function sleep(ms) {
+  return new Promise(res => setTimeout(res, ms));
+}
+
+/* ================= EKSEKUSI ANIMASI DADU 3D, LANGKAH, ULAR/TANGGA & KO ================= */
+async function applyTurnUpdate(newState, animData) {
+  if (!animData) {
+    gameState = newState;
+    gameState.players.forEach(p => {
+      if (visualPositions[p.id] === undefined) visualPositions[p.id] = p.pos;
+    });
+    renderTokensAndRoster(gameState);
+    return;
+  }
+
+  if (animData.kind === 'EMOJI') {
+    spawnFloatingEmoji(animData.senderId, animData.emo);
+    return;
+  }
+
+  if (animData.kind === 'DICE_TURN') {
+    isTurnAnimating = true;
+    updateRollButtonState(newState);
+
+    const cube = document.getElementById('diceCube');
+    const resultLabel = document.getElementById('diceResultText');
+
+    // 1. Animasi dadu berputar 3D real selama ~1 detik dengan suara tik-tik
+    cube.style.transform = '';
+    cube.classList.add('rolling');
+    resultLabel.textContent = `${animData.playerAvatar} ${animData.playerName} mengocok dadu...`;
+
+    const tickTimer = setInterval(() => playSfx('diceTick'), 95);
+    await sleep(1020);
+    clearInterval(tickTimer);
+
+    cube.classList.remove('rolling');
+    cube.style.transform = DICE_ROTATIONS[animData.dice] || DICE_ROTATIONS[1];
+    resultLabel.textContent = `Hasil dadu: ${animData.dice}!`;
+    await sleep(360);
+
+    // 2. Animasi melangkah 1 per 1 dari startPos ke intermediatePos
+    let curPos = visualPositions[animData.playerId] ?? animData.startPos;
+    const stepsCount = animData.dice;
+
+    for (let s = 1; s <= stepsCount; s++) {
+      if (!animData.bouncedBack) {
+        curPos = Math.min(100, animData.startPos + s);
+      } else {
+        const raw = animData.startPos + s;
+        curPos = raw <= 100 ? raw : 100 - (raw - 100);
+      }
+      visualPositions[animData.playerId] = curPos;
+      playSfx('hop');
+      renderTokensAndRoster(gameState, { hoppingId: animData.playerId });
+      await sleep(230);
+    }
+
+    // 3. Animasi naik tangga atau meluncur turun ular
+    if (animData.specialEvent) {
+      const ev = animData.specialEvent;
+      if (ev.type === 'ladder') {
+        showToast(`🪜 Naik tangga! ${animData.playerName} melesat ke ${ev.to}!`);
+        playSfx('ladder');
+      } else {
+        showToast(`🐍 Aduh! ${animData.playerName} digigit ular ke ${ev.to}!`);
+        playSfx('snake');
+      }
+      visualPositions[animData.playerId] = ev.to;
+      renderTokensAndRoster(gameState, {
+        specialId: animData.playerId,
+        specialMode: ev.type === 'ladder' ? 'climbing' : 'sliding'
+      });
+      await sleep(880);
+    }
+
+    // 4. Animasi jika menabrak bidak lawan -> lawan KO & kembali ke awal (0)
+    if (animData.koVictims && animData.koVictims.length > 0) {
+      playSfx('ko');
+      const names = animData.koVictims.map(v => `${v.avatar}${v.name}`).join(', ');
+      showToast(`💥 KO! ${animData.playerName} menabrak ${names} balik ke AWAL!`);
+      renderTokensAndRoster(gameState, { koIds: animData.koVictims.map(v => v.id) });
+      await sleep(380);
+
+      animData.koVictims.forEach(v => {
+        visualPositions[v.id] = 0;
+      });
+      renderTokensAndRoster(gameState);
+      await sleep(420);
+    }
+
+    gameState = newState;
+    gameState.players.forEach(p => {
+      visualPositions[p.id] = p.pos;
+    });
+
+    isTurnAnimating = false;
+    renderTokensAndRoster(gameState);
+
+    if (animData.winnerName && lastWinnerHandled !== animData.winnerName) {
+      lastWinnerHandled = animData.winnerName;
+      playSfx('win');
+      setTimeout(() => {
+        showModal({
+          icon: '👑',
+          title: `${animData.winnerName} Menang!`,
+          desc: isHost
+            ? 'Sampai di petak 100! Mau main ronde baru sekarang?'
+            : 'Permainan selesai! Menunggu Host memulai ronde baru.',
+          buttons: isHost
+            ? [
+                { text: 'Lobby', cls: 'btn-slate', onClick: () => resetToLobby() },
+                { text: 'Main Lagi', cls: 'btn-emerald', onClick: () => startGame() }
+              ]
+            : [
+                { text: 'Lobby', cls: 'btn-sky', onClick: () => resetToLobby() }
+              ]
+        });
+      }, 650);
+    } else if (isHost) {
+      scheduleBotIfNeeded();
+    }
+  }
+}
+
+function spawnFloatingEmoji(senderId, emo) {
+  const posVal = visualPositions[senderId] ?? 0;
+  const xy = getTilePercentXY(posVal);
+  const boardRect = document.querySelector('.board-frame').getBoundingClientRect();
+
+  const el = document.createElement('div');
+  el.className = 'float-emo';
+  el.textContent = emo;
+  el.style.left = (boardRect.left + (xy.x / 100) * boardRect.width - 18) + 'px';
+  el.style.top = (boardRect.top + (xy.y / 100) * boardRect.height - 18) + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1700);
+}
+
+function updateRollButtonState(state) {
+  const active = state.players[state.turnIndex];
+  const isMyTurn = !isTurnAnimating && !state.winner && active && active.id === myId;
+  document.getElementById('rollDiceBtn').disabled = !isMyTurn;
+
+  const badge = document.getElementById('turnStatusBadge');
+  if (state.winner) {
+    badge.textContent = `🏆 Juara: ${state.winner}`;
+    badge.classList.remove('is-my-turn');
+  } else if (active && active.id === myId) {
+    badge.textContent = "🎲 Giliran Kamu Kocok Dadu!";
+    badge.classList.add('is-my-turn');
+  } else if (active) {
+    badge.textContent = `⏳ Giliran ${active.avatar} ${active.name}`;
+    badge.classList.remove('is-my-turn');
+  }
+}
+
+function renderTokensAndRoster(state, animFlags = {}) {
+  updateRollButtonState(state);
+
+  const active = state.players[state.turnIndex];
+  document.getElementById('rosterCount').textContent = `${state.players.length}/8`;
+
+  // Kelompokkan pemain per petak agar bidak yang berada di petak sama tidak saling menumpuk penuh
+  const byPos = {};
+  state.players.forEach(p => {
+    const vPos = visualPositions[p.id] ?? p.pos ?? 0;
+    if (!byPos[vPos]) byPos[vPos] = [];
+    byPos[vPos].push(p.id);
+  });
+
+  const offsets = [
+    { dx: -1.8, dy: -1.8 },
+    { dx:  1.8, dy: -1.8 },
+    { dx: -1.8, dy:  1.8 },
+    { dx:  1.8, dy:  1.8 },
+    { dx:  0.0, dy: -2.2 },
+    { dx:  0.0, dy:  2.2 },
+    { dx: -2.2, dy:  0.0 },
+    { dx:  2.2, dy:  0.0 }
+  ];
+
+  const tokensLayer = document.getElementById('tokensLayer');
+  tokensLayer.innerHTML = state.players.map(p => {
+    const vPos = visualPositions[p.id] ?? p.pos ?? 0;
+    const group = byPos[vPos] || [p.id];
+    const slotIdx = group.indexOf(p.id) % offsets.length;
+    const xy = getTilePercentXY(vPos, group.length > 1 ? offsets[slotIdx] : { dx: 0, dy: 0 });
+
+    let extraCls = '';
+    if (animFlags.hoppingId === p.id) extraCls += ' hop';
+    if (animFlags.specialId === p.id && animFlags.specialMode) extraCls += ` ${animFlags.specialMode}`;
+    if (animFlags.koIds && animFlags.koIds.includes(p.id)) extraCls += ' ko-anim';
+
+    return `
+      <div class="player-token ${extraCls}"
+           style="left:${xy.x}%; top:${xy.y}%; background:${p.color};">
+        ${p.avatar}
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('rosterGrid').innerHTML = state.players.map(p => {
+    const isAct = !state.winner && active && active.id === p.id;
+    const vPos = visualPositions[p.id] ?? p.pos ?? 0;
+    return `
+      <div class="roster-item ${isAct ? 'active' : ''}">
+        <div class="roster-left">
+          <span>${p.avatar}</span>
+          <span class="roster-name">${p.name}</span>
+        </div>
+        <span class="roster-pos">${vPos === 0 ? 'Start' : vPos}</span>
+      </div>
+    `;
+  }).join('');
+}
+</script>
+</body>
+</html>
