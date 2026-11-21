@@ -1,0 +1,1862 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Exploding Kittens P2P (Tanpa Firebase)</title>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f101d;
+    --panel: rgba(25, 27, 46, 0.9);
+    --gold: #ffd166;
+    --mint: #06d6a0;
+    --crimson: #ff3b5c;
+    --sky: #4cc9f0;
+    --violet: #b565ff;
+    --amber: #ff9f1c;
+    --border: rgba(255, 255, 255, 0.14);
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    font-family: 'Fredoka', sans-serif;
+  }
+
+  body {
+    background: radial-gradient(circle at top, #251b3d 0%, var(--bg) 100%);
+    color: #fff;
+    height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ================= LOADING SCREEN ================= */
+  #loadingScreen {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(circle at center, #261a3b 0%, #090a12 100%);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    transition: opacity 0.5s ease, visibility 0.5s ease;
+  }
+  #loadingScreen.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .bomb-cat-loader {
+    font-size: 62px;
+    animation: catBombPulse 1.15s infinite ease-in-out;
+    filter: drop-shadow(0 12px 28px rgba(255, 59, 92, 0.45));
+  }
+  @keyframes catBombPulse {
+    0%, 100% { transform: scale(1) rotate(-8deg); }
+    50% { transform: scale(1.14) rotate(8deg); }
+  }
+  .load-tag {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid var(--border);
+    padding: 9px 20px;
+    border-radius: 999px;
+    font-size: 15px;
+    text-align: center;
+    max-width: 90vw;
+  }
+
+  /* ================= SCREENS ================= */
+  .screen {
+    display: none;
+    flex: 1;
+    flex-direction: column;
+    padding: 12px;
+    overflow: hidden;
+  }
+  .screen.active { display: flex; }
+
+  #lobbyScreen {
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    overflow-y: auto;
+  }
+
+  .title-wrap { text-align: center; }
+  .title-wrap h1 {
+    font-size: clamp(26px, 5vw, 38px);
+    background: linear-gradient(90deg, var(--crimson), var(--gold), var(--sky));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .title-wrap p {
+    font-size: 13px;
+    color: rgba(255,255,255,0.68);
+  }
+
+  .glass-panel {
+    background: var(--panel);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 20px;
+    width: 100%;
+    max-width: 430px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 20px 44px rgba(0,0,0,0.5);
+  }
+
+  input {
+    width: 100%;
+    padding: 13px 15px;
+    border-radius: 14px;
+    border: 1.5px solid rgba(255,255,255,0.18);
+    background: rgba(9, 10, 20, 0.62);
+    color: #fff;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  input:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(255, 209, 102, 0.16);
+  }
+
+  .btn {
+    padding: 12px 16px;
+    border: none;
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.4);
+    transition: transform 0.12s ease, filter 0.15s ease, opacity 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .btn:hover:not(:disabled) { filter: brightness(1.07); }
+  .btn:active:not(:disabled) {
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 rgba(0,0,0,0.4);
+  }
+  .btn:disabled { opacity: 0.42; cursor: not-allowed; }
+
+  .btn-crimson { background: linear-gradient(135deg, #ff3b5c, #be123c); }
+  .btn-mint { background: linear-gradient(135deg, #06d6a0, #059669); color: #052219; }
+  .btn-sky { background: linear-gradient(135deg, #4cc9f0, #2563eb); }
+  .btn-gold { background: linear-gradient(135deg, #ffd166, #f59e0b); color: #1d1302; }
+  .btn-slate { background: rgba(255,255,255,0.13); border: 1px solid rgba(255,255,255,0.14); }
+
+  .row { display: flex; gap: 8px; }
+
+  .invite-box {
+    background: rgba(76, 201, 240, 0.14);
+    border: 1px solid rgba(76, 201, 240, 0.45);
+    border-radius: 14px;
+    padding: 10px 14px;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .code-panel {
+    background: rgba(8, 10, 22, 0.78);
+    border: 1.5px dashed var(--gold);
+    border-radius: 16px;
+    padding: 11px;
+    text-align: center;
+  }
+  .code-txt {
+    font-size: 28px;
+    letter-spacing: 6px;
+    color: var(--gold);
+    font-weight: 700;
+  }
+
+  .link-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0,0,0,0.38);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 6px 6px 6px 12px;
+  }
+  .link-row span {
+    flex: 1;
+    font-size: 12px;
+    color: #cdd9ff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .lobby-players {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    max-height: 185px;
+    overflow-y: auto;
+  }
+  .lobby-item {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 9px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+  }
+
+  /* ================= GAME ARENA ================= */
+  #gameScreen {
+    background: radial-gradient(circle at center, #261d40 0%, #101120 100%);
+    justify-content: space-between;
+    gap: 6px;
+    position: relative;
+  }
+
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    z-index: 20;
+  }
+  .hud-chip {
+    background: rgba(0,0,0,0.5);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .attack-badge {
+    background: linear-gradient(135deg, #ff3b5c, #ff9f1c);
+    color: #fff;
+    padding: 5px 11px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    animation: pulseDanger 0.7s infinite alternate;
+  }
+  @keyframes pulseDanger {
+    from { transform: scale(1); }
+    to { transform: scale(1.07); }
+  }
+
+  /* OPPONENTS */
+  .opponents-bar {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 7px;
+    z-index: 15;
+    min-height: 70px;
+  }
+  .opp-pod {
+    background: rgba(0,0,0,0.45);
+    border: 2px solid rgba(255,255,255,0.14);
+    border-radius: 15px;
+    padding: 6px 9px;
+    min-width: 78px;
+    text-align: center;
+    transition: transform 0.22s, border-color 0.22s, opacity 0.3s;
+  }
+  .opp-pod.active {
+    border-color: var(--gold);
+    box-shadow: 0 0 16px rgba(255, 209, 102, 0.65);
+    transform: scale(1.06);
+    background: rgba(255, 209, 102, 0.14);
+  }
+  .opp-pod.eliminated {
+    opacity: 0.38;
+    filter: grayscale(0.9);
+    border-color: rgba(255, 59, 92, 0.35);
+  }
+  .opp-emo { font-size: 20px; display: inline-block; }
+  .opp-pod.active .opp-emo { animation: hopEmo 0.65s infinite alternate; }
+  @keyframes hopEmo {
+    from { transform: translateY(0) rotate(-6deg); }
+    to { transform: translateY(-4px) rotate(6deg); }
+  }
+  .opp-nm {
+    font-size: 11px;
+    max-width: 74px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .opp-cnt {
+    display: inline-block;
+    margin-top: 2px;
+    background: rgba(255,255,255,0.14);
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  /* CENTER DECK & DISCARD */
+  .center-arena {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    position: relative;
+  }
+  .piles-row {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    z-index: 10;
+  }
+
+  /* KARTU EXPLODING KITTENS */
+  .ek-card {
+    width: 82px;
+    height: 120px;
+    border-radius: 15px;
+    border: 3.5px solid #fff;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    text-align: center;
+    position: relative;
+    box-shadow: 0 10px 22px rgba(0,0,0,0.48);
+    transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s;
+    flex-shrink: 0;
+  }
+  .ek-card.deck-back {
+    background: linear-gradient(145deg, #2b193d, #140d1f);
+    border-color: var(--gold);
+    cursor: pointer;
+    justify-content: center;
+  }
+  .ek-card.deck-back.can-draw {
+    box-shadow: 0 0 22px rgba(255, 209, 102, 0.75);
+    animation: deckPulse 1s infinite alternate;
+  }
+  @keyframes deckPulse {
+    from { transform: scale(1); }
+    to { transform: scale(1.06); }
+  }
+  .ek-card.deck-back:active { transform: scale(0.93); }
+
+  .ek-card.cat_bomb { background: linear-gradient(160deg, #ff3b5c, #881337); }
+  .ek-card.defuse   { background: linear-gradient(160deg, #06d6a0, #047857); color: #052219; }
+  .ek-card.skip     { background: linear-gradient(160deg, #4cc9f0, #1d4ed8); }
+  .ek-card.attack   { background: linear-gradient(160deg, #ff9f1c, #c2410c); color: #1e0d02; }
+  .ek-card.future   { background: linear-gradient(160deg, #b565ff, #6d28d9); }
+  .ek-card.shuffle  { background: linear-gradient(160deg, #f472b6, #be185d); }
+  .ek-card.favor    { background: linear-gradient(160deg, #ffd166, #ca8a04); color: #1d1402; }
+
+  .ek-art { font-size: 32px; line-height: 1.05; }
+  .ek-title {
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.1;
+    text-transform: uppercase;
+  }
+  .ek-sub {
+    font-size: 9px;
+    opacity: 0.85;
+    line-height: 1.1;
+  }
+
+  /* HAND AREA */
+  .player-dock {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    z-index: 25;
+  }
+  .dock-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 6px;
+  }
+  .turn-pill {
+    font-size: 14px;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: 12px;
+    background: rgba(0,0,0,0.52);
+  }
+  .turn-pill.my-turn {
+    background: var(--mint);
+    color: #052219;
+    animation: myTurnBounce 0.9s infinite alternate;
+  }
+  @keyframes myTurnBounce {
+    from { transform: scale(1); }
+    to { transform: scale(1.05); }
+  }
+
+  .hand-tray {
+    display: flex;
+    align-items: flex-end;
+    overflow-x: auto;
+    padding: 18px 16px 10px 16px;
+    min-height: 148px;
+  }
+  .hand-tray .ek-card {
+    margin-left: -14px;
+    cursor: pointer;
+  }
+  .hand-tray .ek-card:first-child { margin-left: 0; }
+  .hand-tray .ek-card.actionable {
+    transform: translateY(-12px);
+    box-shadow: 0 12px 24px rgba(255, 255, 255, 0.28);
+  }
+  .hand-tray .ek-card.actionable:active {
+    transform: translateY(-22px) scale(1.05);
+  }
+  .hand-tray .ek-card.passive-card {
+    opacity: 0.72;
+  }
+
+  /* EMOJI REACTIONS */
+  .emo-strip {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+  }
+  .emo-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.1);
+    font-size: 18px;
+    cursor: pointer;
+    transition: transform 0.14s;
+  }
+  .emo-btn:active { transform: scale(1.28); }
+
+  .fly-emo {
+    position: fixed;
+    font-size: 40px;
+    pointer-events: none;
+    z-index: 450;
+    animation: riseFlyEmo 1.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  @keyframes riseFlyEmo {
+    0%   { transform: translateY(0) scale(0.4); opacity: 0; }
+    20%  { transform: translateY(-25px) scale(1.2); opacity: 1; }
+    100% { transform: translateY(-195px) scale(0.95); opacity: 0; }
+  }
+
+  /* FLYING CARD ANIMATION */
+  #fxLayer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 500;
+  }
+  .flying-ek {
+    position: fixed;
+    width: 82px;
+    height: 120px;
+    border-radius: 15px;
+    border: 3.5px solid #fff;
+    box-shadow: 0 18px 34px rgba(0,0,0,0.6);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: left 0.62s cubic-bezier(0.22, 1, 0.36, 1),
+                top 0.62s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.62s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* EXPLOSION & SCREEN SHAKE */
+  .explosion-flash {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(circle, rgba(255,209,102,0.85) 0%, rgba(255,59,92,0.75) 45%, rgba(0,0,0,0) 75%);
+    z-index: 650;
+    pointer-events: none;
+    opacity: 0;
+    animation: boomFlash 0.85s ease-out forwards;
+  }
+  @keyframes boomFlash {
+    0%   { opacity: 1; transform: scale(0.5); }
+    45%  { opacity: 0.95; transform: scale(1.25); }
+    100% { opacity: 0; transform: scale(1.5); }
+  }
+
+  .shake-boom {
+    animation: boomShake 0.55s cubic-bezier(.36,.07,.19,.97) both;
+  }
+  @keyframes boomShake {
+    10%, 90% { transform: translate3d(-4px, 2px, 0) rotate(-1deg); }
+    20%, 80% { transform: translate3d(6px, -3px, 0) rotate(1deg); }
+    30%, 50%, 70% { transform: translate3d(-9px, 3px, 0) rotate(-1.5deg); }
+    40%, 60% { transform: translate3d(9px, -2px, 0) rotate(1.5deg); }
+  }
+
+  /* TOAST & MODAL ELEGAN */
+  .toast-wrap {
+    position: fixed;
+    top: 16%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 750;
+    pointer-events: none;
+    max-width: 92vw;
+  }
+  .toast-box {
+    background: rgba(15, 18, 34, 0.94);
+    backdrop-filter: blur(14px);
+    color: #fff;
+    border: 1.5px solid rgba(255, 209, 102, 0.78);
+    border-radius: 999px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    box-shadow: 0 14px 32px rgba(0,0,0,0.55);
+    opacity: 0;
+    transform: translateY(-12px) scale(0.95);
+    transition: opacity 0.25s ease, transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .toast-box.show {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(6, 8, 16, 0.8);
+    backdrop-filter: blur(8px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 850;
+  }
+  .modal-backdrop.active { display: flex; }
+
+  .modal-card {
+    background: rgba(25, 28, 48, 0.97);
+    border: 1.5px solid var(--border);
+    border-radius: 24px;
+    padding: 22px 18px;
+    width: 100%;
+    max-width: 370px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 24px 54px rgba(0,0,0,0.68);
+    animation: popModal 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes popModal {
+    0% { transform: scale(0.84); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .peek-cards-row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 4px 0;
+  }
+  .choice-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+</style>
+</head>
+<body>
+
+<!-- LOADING SCREEN -->
+<div id="loadingScreen">
+  <div class="bomb-cat-loader">💣🐱</div>
+  <div class="load-tag" id="loadCaption">Menyembunyikan kucing meledak di dalam dek...</div>
+</div>
+
+<div id="fxLayer"></div>
+
+<!-- TOAST ELEGAN -->
+<div class="toast-wrap">
+  <div class="toast-box" id="toastBox"></div>
+</div>
+
+<!-- MODAL ELEGAN -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal-card">
+    <div id="mIcon" style="font-size:44px;">💥</div>
+    <div id="mTitle" style="font-size:21px; font-weight:700; color:var(--gold);">Judul</div>
+    <div id="mDesc" style="font-size:14px; color:rgba(255,255,255,0.85); line-height:1.45;">Pesan</div>
+    <div id="mExtra"></div>
+    <div id="mBtns" style="display:flex; gap:8px; margin-top:4px;"></div>
+  </div>
+</div>
+
+<!-- LOBBY SCREEN -->
+<div id="lobbyScreen" class="screen active">
+  <div class="title-wrap">
+    <h1>EXPLODING KITTENS P2P</h1>
+    <p>Tarik Kartu • Jinakkan Bom Kucing • Tanpa Firebase</p>
+  </div>
+
+  <div class="glass-panel" id="entryPanel">
+    <div class="invite-box" id="inviteBanner" style="display:none;">
+      🔗 Diundang ke Room <strong id="invitedCode" style="color:var(--gold);">-----</strong>! Tulis namamu lalu gabung.
+    </div>
+
+    <input type="text" id="nameInput" placeholder="Masukkan Nama Kamu" maxlength="12">
+
+    <div id="createSection">
+      <button class="btn btn-crimson" style="width:100%;" onclick="createRoom()">👑 Buat Room Baru (Host)</button>
+    </div>
+
+    <div id="joinSection">
+      <div style="text-align:center; font-size:12px; opacity:0.6; margin-bottom:8px;">— ATAU GABUNG ROOM —</div>
+      <div class="row">
+        <input type="text" id="codeInput" placeholder="KODE 5 HURUF" maxlength="5" style="text-transform:uppercase; text-align:center; font-weight:700; letter-spacing:3px;">
+        <button class="btn btn-sky" id="joinBtn" onclick="joinRoom()">Gabung</button>
+      </div>
+    </div>
+
+    <div id="lobbyHint" style="text-align:center; font-size:13px; color:var(--gold); min-height:18px;"></div>
+  </div>
+
+  <div class="glass-panel" id="roomPanel" style="display:none;">
+    <div class="code-panel">
+      <div style="font-size:11px; opacity:0.75;">KODE ROOM</div>
+      <div class="code-txt" id="roomCodeText">-----</div>
+    </div>
+
+    <div class="link-row">
+      <span id="shareLinkText">-</span>
+      <button class="btn btn-gold" style="padding:8px 11px; font-size:12px; border-radius:10px;" onclick="copyShareUrl()">📋 Salin</button>
+    </div>
+    <button class="btn btn-sky" style="padding:10px 14px; font-size:13px;" onclick="nativeShareUrl()">📤 Bagikan Link ke Chat</button>
+
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <strong id="lobbyCountLabel">Pemain (1/6)</strong>
+      <button class="btn btn-slate" id="addBotBtn" style="padding:7px 11px; font-size:12px;" onclick="addBot()">🤖 + Bot AI</button>
+    </div>
+
+    <div class="lobby-players" id="lobbyPlayerList"></div>
+
+    <button class="btn btn-mint" id="startBtn" onclick="startGame()" style="display:none;">💣 Mulai Permainan!</button>
+    <div id="waitHostLabel" style="text-align:center; font-size:13px; opacity:0.75; display:none;">Menunggu Host memulai permainan...</div>
+  </div>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="gameScreen" class="screen">
+  <div class="top-bar">
+    <div class="hud-chip" id="deckCountChip">🃏 Dek: 0</div>
+    <div class="attack-badge" id="attackStackBadge" style="display:none;">⚡ Sisa Tarikan: 2x</div>
+    <div style="display:flex; gap:6px;">
+      <button class="btn btn-slate" style="padding:6px 10px; font-size:12px;" id="muteBtn" onclick="toggleMute()">🔊</button>
+      <button class="btn btn-crimson" style="padding:6px 10px; font-size:12px;" onclick="confirmExit()">Keluar</button>
+    </div>
+  </div>
+
+  <!-- OPPONENTS -->
+  <div class="opponents-bar" id="opponentsBar"></div>
+
+  <!-- CENTER DECK & DISCARD -->
+  <div class="center-arena">
+    <div class="piles-row">
+      <div class="ek-card deck-back" id="drawDeckEl" onclick="onDrawDeckClick()">
+        <div class="ek-art">🐱</div>
+        <div class="ek-title" style="color:var(--gold); margin-top:4px;">TARIK</div>
+        <div class="ek-sub">Awas Bom!</div>
+      </div>
+
+      <div id="discardSlot">
+        <div class="ek-card" style="background:rgba(255,255,255,0.06); border-style:dashed; justify-content:center;">
+          <div class="ek-sub">Buangan</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EMOJI REACTIONS -->
+  <div class="emo-strip">
+    <button class="emo-btn" onclick="sendReaction('💣')">💣</button>
+    <button class="emo-btn" onclick="sendReaction('🙀')">🙀</button>
+    <button class="emo-btn" onclick="sendReaction('😈')">😈</button>
+    <button class="emo-btn" onclick="sendReaction('😂')">😂</button>
+    <button class="emo-btn" onclick="sendReaction('🙏')">🙏</button>
+  </div>
+
+  <!-- MY HAND -->
+  <div class="player-dock">
+    <div class="dock-top">
+      <div class="turn-pill" id="turnBadge">Menunggu...</div>
+      <div style="font-size:12px; opacity:0.75;" id="myStatusHint">Klik kartu aksi untuk main</div>
+    </div>
+    <div class="hand-tray" id="myHandTray"></div>
+  </div>
+</div>
+
+<script>
+/* ================= SOUND FX (WEB AUDIO API) ================= */
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let actx = null;
+let isMuted = false;
+
+function toggleMute() {
+  isMuted = !isMuted;
+  document.getElementById('muteBtn').textContent = isMuted ? '🔇' : '🔊';
+  if (!isMuted) playSound('pop');
+}
+
+function playSound(type) {
+  if (isMuted) return;
+  try {
+    if (!actx) actx = new AudioCtx();
+    if (actx.state === 'suspended') actx.resume();
+    const now = actx.currentTime;
+    const osc = actx.createOscillator();
+    const gain = actx.createGain();
+    osc.connect(gain);
+    gain.connect(actx.destination);
+
+    if (type === 'draw') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(480, now);
+      osc.frequency.exponentialRampToValueAtTime(190, now + 0.1);
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.006, now + 0.1);
+      osc.start(now);
+      osc.stop(now + 0.1);
+    } else if (type === 'action') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(360, now);
+      osc.frequency.exponentialRampToValueAtTime(720, now + 0.15);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.008, now + 0.15);
+      osc.start(now);
+      osc.stop(now + 0.15);
+    } else if (type === 'defuse') {
+      osc.type = 'triangle';
+      [523.25, 659.25, 783.99].forEach((f, i) => {
+        osc.frequency.setValueAtTime(f, now + i * 0.08);
+      });
+      gain.gain.setValueAtTime(0.22, now);
+      gain.gain.exponentialRampToValueAtTime(0.008, now + 0.34);
+      osc.start(now);
+      osc.stop(now + 0.34);
+    } else if (type === 'boom') {
+      // Suara ledakan kucing bom + getar
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(175, now);
+      osc.frequency.exponentialRampToValueAtTime(38, now + 0.55);
+      gain.gain.setValueAtTime(0.32, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.56);
+      osc.start(now);
+      osc.stop(now + 0.56);
+    } else if (type === 'win') {
+      osc.type = 'triangle';
+      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+        osc.frequency.setValueAtTime(f, now + i * 0.12);
+      });
+      gain.gain.setValueAtTime(0.22, now);
+      gain.gain.exponentialRampToValueAtTime(0.008, now + 0.6);
+      osc.start(now);
+      osc.stop(now + 0.6);
+    } else {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(460, now);
+      gain.gain.setValueAtTime(0.11, now);
+      gain.gain.exponentialRampToValueAtTime(0.005, now + 0.08);
+      osc.start(now);
+      osc.stop(now + 0.08);
+    }
+  } catch (e) {}
+}
+
+/* ================= TOAST & MODAL ELEGAN ================= */
+function showToast(msg, ms = 2400) {
+  const box = document.getElementById('toastBox');
+  box.textContent = msg;
+  box.classList.add('show');
+  clearTimeout(box._t);
+  box._t = setTimeout(() => box.classList.remove('show'), ms);
+}
+
+function showModal({ icon = '💣', title = '', desc = '', extraHtml = '', buttons = [] }) {
+  document.getElementById('mIcon').textContent = icon;
+  document.getElementById('mTitle').textContent = title;
+  document.getElementById('mDesc').textContent = desc;
+  document.getElementById('mExtra').innerHTML = extraHtml;
+  const btns = document.getElementById('mBtns');
+  btns.innerHTML = '';
+  buttons.forEach(b => {
+    const btn = document.createElement('button');
+    btn.className = `btn ${b.cls || 'btn-sky'}`;
+    btn.style.flex = '1';
+    btn.textContent = b.text;
+    btn.onclick = () => {
+      document.getElementById('modalBackdrop').classList.remove('active');
+      if (typeof b.onClick === 'function') b.onClick();
+    };
+    btns.appendChild(btn);
+  });
+  document.getElementById('modalBackdrop').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('modalBackdrop').classList.remove('active');
+}
+
+/* ================= LOADING ================= */
+const loadLines = [
+  "Menyembunyikan kucing meledak di dalam dek...",
+  "Menyiapkan laser & pelukan jinakin bom (Defuse)...",
+  "Menghubungkan koneksi P2P antar HP..."
+];
+let lIdx = 0;
+const lTimer = setInterval(() => {
+  lIdx = (lIdx + 1) % loadLines.length;
+  const el = document.getElementById('loadCaption');
+  if (el) el.textContent = loadLines[lIdx];
+}, 850);
+
+/* ================= DEFINISI KARTU EXPLODING KITTENS ================= */
+const CARD_META = {
+  cat_bomb: { art: '💣🐱', name: 'Exploding Kitten', sub: 'Meledak kalau draw!' },
+  defuse:   { art: '🛡️🐾', name: 'Defuse',           sub: 'Jinakkan bom kucing' },
+  skip:     { art: '⏭️💨', name: 'Skip',             sub: 'Lewati 1 tarikan' },
+  attack:   { art: '⚔️🔥', name: 'Attack',           sub: 'Lempar 2x giliran' },
+  future:   { art: '🔮👀', name: 'See Future',       sub: 'Intip 3 kartu atas' },
+  shuffle:  { art: '🔀🌀', name: 'Shuffle',          sub: 'Kocok ulang dek' },
+  favor:    { art: '🎁😼', name: 'Favor',            sub: 'Minta 1 kartu lawan' }
+};
+
+function renderCardHtml(type, extraClass = '', clickAttr = '') {
+  const m = CARD_META[type] || { art: '🃏', name: type, sub: '' };
+  return `
+    <div class="ek-card ${type} ${extraClass}" ${clickAttr}>
+      <div class="ek-art">${m.art}</div>
+      <div class="ek-title">${m.name}</div>
+      <div class="ek-sub">${m.sub}</div>
+    </div>
+  `;
+}
+
+/* ================= PEERJS P2P MULTIPLAYER ================= */
+const PEER_PREFIX = "EKP2P2026-";
+const AVATARS = ["😼", "🐈‍⬛", "🐯", "🦁", "🐱", "🐆"];
+
+let peer = null;
+let isHost = false;
+let myId = "";
+let myName = "";
+let hostConn = null;
+let clientConns = {};
+let activeRoomCode = "";
+let isInvited = false;
+let isAnimating = false;
+let lastWinnerShown = null;
+
+// State Game (Diatur oleh Host)
+let gameState = {
+  started: false,
+  players: [], // { id, name, avatar, isBot, hand: [], alive: true }
+  deck: [],
+  discardPile: [],
+  turnIndex: 0,
+  turnsRemainingToDraw: 1,
+  winner: null
+};
+
+function genRoomCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let out = "";
+  for (let i = 0; i < 5; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
+function buildShareUrl(code) {
+  const u = new URL(window.location.href);
+  u.searchParams.set('room', code);
+  return u.toString();
+}
+
+function checkInviteUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const code = (params.get('room') || '').trim().toUpperCase().slice(0, 5);
+  if (code.length >= 4) {
+    isInvited = true;
+    document.getElementById('codeInput').value = code;
+    document.getElementById('invitedCode').textContent = code;
+    document.getElementById('inviteBanner').style.display = 'block';
+    document.getElementById('createSection').style.display = 'none';
+    document.getElementById('joinBtn').textContent = 'Gabung Room';
+  }
+}
+
+function updateRoomLinkUI(code) {
+  activeRoomCode = code;
+  document.getElementById('roomCodeText').textContent = code;
+  document.getElementById('shareLinkText').textContent = buildShareUrl(code);
+}
+
+function copyShareUrl() {
+  if (!activeRoomCode) return;
+  const link = buildShareUrl(activeRoomCode);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(link).then(() => showToast("📋 Link room tersalin!"))
+      .catch(() => copyFallback(link));
+  } else {
+    copyFallback(link);
+  }
+}
+
+function copyFallback(txt) {
+  const ta = document.createElement('textarea');
+  ta.value = txt;
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  ta.remove();
+  showToast("📋 Link room tersalin!");
+}
+
+async function nativeShareUrl() {
+  if (!activeRoomCode) return;
+  const link = buildShareUrl(activeRoomCode);
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: 'Mabar Exploding Kittens P2P!',
+        text: `Awas meledak! Klik link ini, isi nama, lalu gabung (Kode: ${activeRoomCode})`,
+        url: link
+      });
+    } catch (e) {}
+  } else {
+    copyShareUrl();
+  }
+}
+
+window.addEventListener('load', () => {
+  checkInviteUrl();
+  setTimeout(() => {
+    clearInterval(lTimer);
+    document.getElementById('loadingScreen').classList.add('hidden');
+  }, 1450);
+});
+
+/* ================= LOBBY ACTIONS ================= */
+function createRoom() {
+  myName = document.getElementById('nameInput').value.trim() || "Host Kucing";
+  const code = genRoomCode();
+  document.getElementById('lobbyHint').textContent = "Membuka room P2P...";
+
+  peer = new Peer(PEER_PREFIX + code, {
+    config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+  });
+
+  peer.on('open', (id) => {
+    isHost = true;
+    myId = id;
+    gameState.players = [{
+      id: myId,
+      name: myName,
+      avatar: AVATARS[0],
+      isBot: false,
+      hand: [],
+      alive: true
+    }];
+
+    document.getElementById('lobbyHint').textContent = "";
+    document.getElementById('entryPanel').style.display = 'none';
+    document.getElementById('roomPanel').style.display = 'flex';
+    updateRoomLinkUI(code);
+    document.getElementById('startBtn').style.display = 'inline-flex';
+    renderLobbyPlayers();
+  });
+
+  peer.on('connection', (conn) => {
+    conn.on('data', (data) => handleHostReceive(conn, data));
+    conn.on('close', () => {
+      delete clientConns[conn.peer];
+      gameState.players = gameState.players.filter(p => p.id !== conn.peer);
+      if (gameState.turnIndex >= gameState.players.length) gameState.turnIndex = 0;
+      broadcastState();
+      renderLobbyPlayers();
+    });
+  });
+
+  peer.on('error', (err) => {
+    document.getElementById('lobbyHint').textContent = "Gagal membuat room: " + err.type;
+  });
+}
+
+function joinRoom() {
+  const typed = document.getElementById('nameInput').value.trim();
+  if (isInvited && !typed) {
+    showToast("✍️ Ketik nama kamu dulu sebelum gabung!");
+    document.getElementById('nameInput').focus();
+    return;
+  }
+  myName = typed || "Pemain Kucing";
+  const code = document.getElementById('codeInput').value.trim().toUpperCase();
+  if (code.length < 4) {
+    document.getElementById('lobbyHint').textContent = "Masukkan kode room yang valid!";
+    return;
+  }
+
+  document.getElementById('lobbyHint').textContent = "Menghubungkan ke Host...";
+  peer = new Peer({
+    config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+  });
+
+  peer.on('open', (id) => {
+    myId = id;
+    hostConn = peer.connect(PEER_PREFIX + code, { reliable: true });
+
+    hostConn.on('open', () => {
+      hostConn.send({ type: 'JOIN', name: myName });
+      document.getElementById('lobbyHint').textContent = "";
+      document.getElementById('entryPanel').style.display = 'none';
+      document.getElementById('roomPanel').style.display = 'flex';
+      updateRoomLinkUI(code);
+      document.getElementById('addBotBtn').style.display = 'none';
+      document.getElementById('waitHostLabel').style.display = 'block';
+    });
+
+    hostConn.on('data', (data) => handleClientReceive(data));
+    hostConn.on('close', () => {
+      showModal({
+        icon: '🔌',
+        title: 'Koneksi Terputus',
+        desc: 'Koneksi ke Host terputus atau room sudah ditutup.',
+        buttons: [{ text: 'Kembali', cls: 'btn-sky', onClick: () => resetToStart() }]
+      });
+    });
+  });
+
+  peer.on('error', () => {
+    document.getElementById('lobbyHint').textContent = "Room tidak ditemukan! Cek kode lagi.";
+  });
+}
+
+function addBot() {
+  if (!isHost || gameState.players.length >= 6) return;
+  const botNames = ["Bot Meong", "Bot Cakar", "Bot Kucing", "Bot Nakal", "Bot Hoki"];
+  const idx = gameState.players.length;
+  gameState.players.push({
+    id: "BOT_" + Date.now() + "_" + idx,
+    name: botNames[idx % botNames.length],
+    avatar: AVATARS[idx % AVATARS.length],
+    isBot: true,
+    hand: [],
+    alive: true
+  });
+  playSound('pop');
+  broadcastState();
+  renderLobbyPlayers();
+}
+
+function renderLobbyPlayers() {
+  document.getElementById('lobbyCountLabel').textContent = `Pemain (${gameState.players.length}/6)`;
+  document.getElementById('lobbyPlayerList').innerHTML = gameState.players.map((p, i) => `
+    <div class="lobby-item">
+      <span>${p.avatar} <strong>${p.name}</strong> ${p.id === myId ? '(Kamu)' : ''}</span>
+      <span style="font-size:12px; opacity:0.75;">${i === 0 ? '👑 Host' : (p.isBot ? '🤖 AI' : '📱 HP')}</span>
+    </div>
+  `).join('');
+}
+
+function resetToStart() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete('room');
+  window.history.replaceState({}, '', url.toString());
+  window.location.reload();
+}
+
+function confirmExit() {
+  showModal({
+    icon: '🚪',
+    title: 'Keluar Permainan?',
+    desc: 'Kamu akan keluar dari meja Exploding Kittens.',
+    buttons: [
+      { text: 'Batal', cls: 'btn-slate' },
+      { text: 'Keluar', cls: 'btn-crimson', onClick: () => resetToStart() }
+    ]
+  });
+}
+
+/* ================= DECK & GAME ENGINE ================= */
+function shuffleArray(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function buildGameDeck(playerCount) {
+  const base = [];
+  const addCopies = (type, n) => { for (let i = 0; i < n; i++) base.push(type); };
+
+  addCopies('skip', 5);
+  addCopies('attack', 4);
+  addCopies('future', 5);
+  addCopies('shuffle', 4);
+  addCopies('favor', 4);
+
+  shuffleArray(base);
+
+  // Bagikan 5 kartu aksi/umum + 1 kartu Defuse ke setiap pemain
+  const hands = Array.from({ length: playerCount }, () => ['defuse']);
+  for (let r = 0; r < 5; r++) {
+    for (let p = 0; p < playerCount; p++) {
+      if (base.length > 0) hands[p].push(base.pop());
+    }
+  }
+
+  // Sisa kartu Defuse di dek
+  const extraDefuseCount = Math.max(2, 6 - playerCount);
+  for (let i = 0; i < extraDefuseCount; i++) base.push('defuse');
+
+  // Masukkan (playerCount - 1) kartu Exploding Kitten agar selalu ada 1 pemenang terakhir
+  const bombCount = Math.max(1, playerCount - 1);
+  for (let i = 0; i < bombCount; i++) base.push('cat_bomb');
+
+  return { hands, deck: shuffleArray(base) };
+}
+
+function startGame() {
+  if (!isHost) return;
+  if (gameState.players.length < 2) {
+    showToast("Minimal 2 pemain! Tambah Bot AI dulu 🤖");
+    return;
+  }
+
+  lastWinnerShown = null;
+  const { hands, deck } = buildGameDeck(gameState.players.length);
+
+  gameState.started = true;
+  gameState.winner = null;
+  gameState.turnIndex = 0;
+  gameState.turnsRemainingToDraw = 1;
+  gameState.discardPile = [];
+  gameState.deck = deck;
+
+  gameState.players.forEach((p, idx) => {
+    p.hand = hands[idx];
+    p.alive = true;
+  });
+
+  broadcast({ type: 'GAME_START', state: gameState });
+  enterArena(gameState);
+}
+
+function enterArena(state) {
+  gameState = state;
+  closeModal();
+  document.getElementById('lobbyScreen').classList.remove('active');
+  document.getElementById('gameScreen').classList.add('active');
+  renderArena(gameState);
+  showToast("💣🐱 Awas! Tarik kartu dengan hati-hati!");
+  if (isHost) checkBotTurn();
+}
+
+/* ================= P2P SYNC ================= */
+function sendToHost(payload) {
+  if (isHost) {
+    processHostAction(myId, payload);
+  } else if (hostConn && hostConn.open) {
+    hostConn.send(payload);
+  }
+}
+
+function broadcast(msg) {
+  Object.values(clientConns).forEach(c => {
+    if (c.open) c.send(msg);
+  });
+}
+
+function broadcastState(animEvent = null) {
+  broadcast({ type: 'STATE_SYNC', state: gameState, animEvent });
+  applyStateWithFx(gameState, animEvent);
+}
+
+function handleHostReceive(conn, data) {
+  if (data.type === 'JOIN') {
+    if (gameState.started || gameState.players.length >= 6) {
+      conn.close();
+      return;
+    }
+    clientConns[conn.peer] = conn;
+    const idx = gameState.players.length;
+    gameState.players.push({
+      id: conn.peer,
+      name: data.name,
+      avatar: AVATARS[idx % AVATARS.length],
+      isBot: false,
+      hand: [],
+      alive: true
+    });
+    broadcastState();
+    renderLobbyPlayers();
+  } else {
+    processHostAction(conn ? conn.peer : myId, data);
+  }
+}
+
+function handleClientReceive(data) {
+  if (data.type === 'GAME_START') {
+    enterArena(data.state);
+  } else if (data.type === 'STATE_SYNC') {
+    if (!data.state.started) {
+      gameState = data.state;
+      renderLobbyPlayers();
+    } else {
+      applyStateWithFx(data.state, data.animEvent);
+    }
+  } else if (data.type === 'SEE_FUTURE_RESULT') {
+    openSeeFutureModal(data.cards);
+  } else if (data.type === 'PROMPT_FAVOR_TARGET') {
+    openFavorTargetModal(data.targets);
+  } else if (data.type === 'PROMPT_FAVOR_GIVE') {
+    openFavorGiveModal(data.requesterName, data.hand);
+  } else if (data.type === 'PROMPT_DEFUSE_INSERT') {
+    openDefuseInsertModal(data.deckSize);
+  }
+}
+
+/* ================= PLAYER ACTIONS ================= */
+function onDrawDeckClick() {
+  if (isAnimating || gameState.winner) return;
+  const curr = gameState.players[gameState.turnIndex];
+  if (!curr || !curr.alive || curr.id !== myId) {
+    showToast("⏳ Belum giliranmu menarik kartu!");
+    return;
+  }
+  sendToHost({ type: 'DRAW_CARD' });
+}
+
+function onPlayHandCard(index) {
+  if (isAnimating || gameState.winner) return;
+  const curr = gameState.players[gameState.turnIndex];
+  if (!curr || !curr.alive || curr.id !== myId) {
+    showToast("⏳ Sabar, bukan giliranmu!");
+    return;
+  }
+  const cardType = curr.hand[index];
+  if (!cardType) return;
+
+  if (cardType === 'defuse') {
+    showToast("🛡️ Kartu Defuse otomatis aktif saat kamu menarik Exploding Kitten!");
+    return;
+  }
+  if (cardType === 'cat_bomb') {
+    showToast("💣 Kartu Exploding Kitten tidak bisa dibuang begitu saja!");
+    return;
+  }
+
+  if (cardType === 'favor') {
+    const aliveOpponents = gameState.players.filter(p => p.alive && p.id !== myId && p.hand.length > 0);
+    if (aliveOpponents.length === 0) {
+      showToast("😅 Tidak ada lawan yang punya kartu untuk diminta!");
+      return;
+    }
+    openFavorTargetModal(aliveOpponents.map(p => ({ id: p.id, name: p.name, avatar: p.avatar, count: p.hand.length })));
+    return;
+  }
+
+  sendToHost({ type: 'PLAY_ACTION_CARD', cardIndex: index });
+}
+
+function sendReaction(emo) {
+  sendToHost({ type: 'EMOJI', emo });
+}
+
+/* ================= HOST GAME RULES ================= */
+let pendingFavorRequesterId = null;
+let pendingDefusePlayerId = null;
+
+function getNextAliveIndex(fromIdx) {
+  const len = gameState.players.length;
+  for (let step = 1; step <= len; step++) {
+    const idx = (fromIdx + step) % len;
+    if (gameState.players[idx] && gameState.players[idx].alive) return idx;
+  }
+  return fromIdx;
+}
+
+function checkWinnerIfOneLeft() {
+  const alive = gameState.players.filter(p => p.alive);
+  if (alive.length === 1) {
+    gameState.winner = alive[0].name;
+    return alive[0].name;
+  }
+  return null;
+}
+
+function processHostAction(senderId, data) {
+  if (!isHost) return;
+
+  if (data.type === 'EMOJI') {
+    broadcastState({ kind: 'EMOJI', senderId, emo: data.emo });
+    return;
+  }
+
+  // Jawaban Favor: pemilik kartu memilih 1 kartu untuk diberikan ke peminta
+  if (data.type === 'GIVE_FAVOR_CARD') {
+    const owner = gameState.players.find(p => p.id === senderId);
+    const requester = gameState.players.find(p => p.id === pendingFavorRequesterId);
+    pendingFavorRequesterId = null;
+    if (owner && requester && owner.hand.length > 0) {
+      const idx = Math.min(Math.max(0, data.cardIndex || 0), owner.hand.length - 1);
+      const [given] = owner.hand.splice(idx, 1);
+      requester.hand.push(given);
+      broadcastState({
+        kind: 'TOAST',
+        text: `🎁 ${owner.name} memberi 1 kartu ke ${requester.name}!`,
+        sound: 'action'
+      });
+    }
+    return;
+  }
+
+  // Jawaban Defuse: pemain memilih posisi menyisipkan kembali Exploding Kitten ke dek
+  if (data.type === 'INSERT_BOMB_AT') {
+    if (senderId !== pendingDefusePlayerId) return;
+    pendingDefusePlayerId = null;
+    const insertIdx = Math.min(Math.max(0, data.insertIndex || 0), gameState.deck.length);
+    gameState.deck.splice(insertIdx, 0, 'cat_bomb');
+
+    const defuser = gameState.players.find(p => p.id === senderId);
+    advanceAfterSafeDraw(defuser ? defuser.name : 'Pemain', true);
+    return;
+  }
+
+  const curr = gameState.players[gameState.turnIndex];
+  if (!curr || !curr.alive || curr.id !== senderId || gameState.winner) return;
+
+  if (data.type === 'PLAY_ACTION_CARD') {
+    const cardType = curr.hand[data.cardIndex];
+    if (!cardType || cardType === 'defuse' || cardType === 'cat_bomb') return;
+
+    curr.hand.splice(data.cardIndex, 1);
+    gameState.discardPile.push(cardType);
+
+    if (cardType === 'skip') {
+      gameState.turnsRemainingToDraw -= 1;
+      let msg = `⏭️ ${curr.name} memakai SKIP!`;
+      if (gameState.turnsRemainingToDraw <= 0) {
+        gameState.turnsRemainingToDraw = 1;
+        gameState.turnIndex = getNextAliveIndex(gameState.turnIndex);
+        msg = `⏭️ ${curr.name} skip giliran! Giliran ${gameState.players[gameState.turnIndex].name}`;
+      }
+      broadcastState({ kind: 'DISCARD', playerId: curr.id, cardType, text: msg, sound: 'action' });
+      checkBotTurn();
+      return;
+    }
+
+    if (cardType === 'attack') {
+      const nextIdx = getNextAliveIndex(gameState.turnIndex);
+      const extraFromLeftover = Math.max(0, gameState.turnsRemainingToDraw - 1);
+      gameState.turnIndex = nextIdx;
+      gameState.turnsRemainingToDraw = 2 + extraFromLeftover;
+      const victim = gameState.players[nextIdx];
+      broadcastState({
+        kind: 'DISCARD',
+        playerId: curr.id,
+        cardType,
+        text: `⚔️ ${curr.name} menyerang ${victim.name}! (${gameState.turnsRemainingToDraw}x tarik)`,
+        sound: 'action'
+      });
+      checkBotTurn();
+      return;
+    }
+
+    if (cardType === 'shuffle') {
+      shuffleArray(gameState.deck);
+      broadcastState({
+        kind: 'DISCARD',
+        playerId: curr.id,
+        cardType,
+        text: `🔀 ${curr.name} mengocok ulang dek!`,
+        sound: 'action'
+      });
+      checkBotTurn();
+      return;
+    }
+
+    if (cardType === 'future') {
+      const topThree = gameState.deck.slice(-3).reverse();
+      broadcastState({
+        kind: 'DISCARD',
+        playerId: curr.id,
+        cardType,
+        text: `🔮 ${curr.name} mengintip 3 kartu teratas dek!`,
+        sound: 'action'
+      });
+      if (curr.isBot) {
+        checkBotTurn();
+      } else if (curr.id === myId) {
+        openSeeFutureModal(topThree);
+      } else if (clientConns[curr.id] && clientConns[curr.id].open) {
+        clientConns[curr.id].send({ type: 'SEE_FUTURE_RESULT', cards: topThree });
+      }
+      return;
+    }
+
+    if (cardType === 'favor') {
+      const targets = gameState.players.filter(p => p.alive && p.id !== curr.id && p.hand.length > 0);
+      if (targets.length === 0) {
+        broadcastState({ kind: 'DISCARD', playerId: curr.id, cardType, text: `🎁 ${curr.name} pakai Favor (zonk!)`, sound: 'action' });
+        checkBotTurn();
+        return;
+      }
+      const chosenTarget = targets.find(t => t.id === data.targetId) || targets[0];
+      pendingFavorRequesterId = curr.id;
+
+      broadcastState({
+        kind: 'DISCARD',
+        playerId: curr.id,
+        cardType,
+        text: `🎁 ${curr.name} meminta kartu dari ${chosenTarget.name}!`,
+        sound: 'action'
+      });
+
+      if (chosenTarget.isBot) {
+        const randIdx = Math.floor(Math.random() * chosenTarget.hand.length);
+        const [given] = chosenTarget.hand.splice(randIdx, 1);
+        curr.hand.push(given);
+        pendingFavorRequesterId = null;
+        broadcastState({ kind: 'TOAST', text: `🎁 ${chosenTarget.name} menyerahkan 1 kartu ke ${curr.name}!`, sound: 'action' });
+        checkBotTurn();
+      } else if (chosenTarget.id === myId) {
+        openFavorGiveModal(curr.name, chosenTarget.hand);
+      } else if (clientConns[chosenTarget.id] && clientConns[chosenTarget.id].open) {
+        clientConns[chosenTarget.id].send({ type: 'PROMPT_FAVOR_GIVE', requesterName: curr.name, hand: chosenTarget.hand });
+      }
+    }
+    return;
+  }
+
+  if (data.type === 'DRAW_CARD') {
+    if (gameState.deck.length === 0) {
+      // Jika dek kosong, lewati giliran dengan aman
+      gameState.turnsRemainingToDraw = 1;
+      gameState.turnIndex = getNextAliveIndex(gameState.turnIndex);
+      broadcastState({ kind: 'TOAST', text: `🃏 Dek kosong! Giliran pindah ke ${gameState.players[gameState.turnIndex].name}.` });
+      checkBotTurn();
+      return;
+    }
+
+    const drawnCard = gameState.deck.pop();
+
+    if (drawnCard === 'cat_bomb') {
+      const defuseIdx = curr.hand.indexOf('defuse');
+      if (defuseIdx !== -1) {
+        // Jinakkan bom dengan Defuse!
+        curr.hand.splice(defuseIdx, 1);
+        gameState.discardPile.push('defuse');
+        pendingDefusePlayerId = curr.id;
+
+        broadcastState({
+          kind: 'DEFUSE_FX',
+          playerId: curr.id,
+          text: `🛡️🐱 ${curr.name} menarik BOM KUCING & MENJINAKKANNYA dengan Defuse!`,
+          sound: 'defuse'
+        });
+
+        if (curr.isBot) {
+          const randPos = Math.floor(Math.random() * (gameState.deck.length + 1));
+          gameState.deck.splice(randPos, 0, 'cat_bomb');
+          pendingDefusePlayerId = null;
+          advanceAfterSafeDraw(curr.name, true);
+        } else if (curr.id === myId) {
+          openDefuseInsertModal(gameState.deck.length);
+        } else if (clientConns[curr.id] && clientConns[curr.id].open) {
+          clientConns[curr.id].send({ type: 'PROMPT_DEFUSE_INSERT', deckSize: gameState.deck.length });
+        }
+      } else {
+        // MELEDAK & KALAH!
+        curr.alive = false;
+        gameState.discardPile.push('cat_bomb');
+        const winName = checkWinnerIfOneLeft();
+
+        if (!winName) {
+          gameState.turnsRemainingToDraw = 1;
+          gameState.turnIndex = getNextAliveIndex(gameState.turnIndex);
+        }
+
+        broadcastState({
+          kind: 'BOOM_FX',
+          playerId: curr.id,
+          text: `💥🐱 DUARRR! ${curr.name} MELEDAK TERKENA KUCING BOM!`,
+          sound: 'boom',
+          explode: true
+        });
+
+        if (!winName) checkBotTurn();
+      }
+      return;
+    }
+
+    // Tarikan kartu normal aman
+    curr.hand.push(drawnCard);
+    advanceAfterSafeDraw(curr.name, false);
+  }
+}
+
+function advanceAfterSafeDraw(playerName, wasDefused) {
+  gameState.turnsRemainingToDraw -= 1;
+  let toastMsg = wasDefused
+    ? `😼 Bom disembunyikan kembali ke dek oleh ${playerName}!`
+    : `🃏 ${playerName} menarik 1 kartu.`;
+
+  if (gameState.turnsRemainingToDraw <= 0) {
+    gameState.turnsRemainingToDraw = 1;
+    gameState.turnIndex = getNextAliveIndex(gameState.turnIndex);
+    toastMsg += ` Giliran ${gameState.players[gameState.turnIndex].name}`;
+  } else {
+    toastMsg += ` Sisa tarikan ${playerName}: ${gameState.turnsRemainingToDraw}x`;
+  }
+
+  broadcastState({
+    kind: 'DRAW_ANIM',
+    playerId: gameState.players.find(p => p.name === playerName)?.id,
+    text: toastMsg,
+    sound: wasDefused ? 'action' : 'draw'
+  });
+
+  checkBotTurn();
+}
+
+/* ================= MODALS FOR FUTURE, FAVOR & DEFUSE ================= */
+function openSeeFutureModal(cards) {
+  const html = `
+    <div class="peek-cards-row">
+      ${cards.length ? cards.map(c => renderCardHtml(c)).join('') : '<span>Dek kosong</span>'}
+    </div>
+  `;
+  showModal({
+    icon: '🔮',
+    title: '3 Kartu Teratas Dek',
+    desc: 'Dari kiri (paling atas) ke kanan:',
+    extraHtml: html,
+    buttons: [{ text: 'Mengerti!', cls: 'btn-sky' }]
+  });
+}
+
+function openFavorTargetModal(targets) {
+  const html = `
+    <div class="choice-list">
+      ${targets.map(t => `
+        <button class="btn btn-gold" onclick="submitFavorTarget('${t.id}')">${t.avatar} ${t.name} (${t.count} kartu)</button>
+      `).join('')}
+    </div>
+  `;
+  showModal({
+    icon: '🎁',
+    title: 'Pilih Lawan (Favor)',
+    desc: 'Pilih siapa yang harus menyerahkan 1 kartu kepadamu:',
+    extraHtml: html,
+    buttons: [{ text: 'Batal', cls: 'btn-slate' }]
+  });
+}
+
+function submitFavorTarget(targetId) {
+  closeModal();
+  const curr = gameState.players[gameState.turnIndex];
+  if (!curr) return;
+  const idx = curr.hand.indexOf('favor');
+  if (idx !== -1) {
+    sendToHost({ type: 'PLAY_ACTION_CARD', cardIndex: idx, targetId });
+  }
+}
+
+function openFavorGiveModal(requesterName, hand) {
+  const html = `
+    <div class="choice-list">
+      ${hand.map((c, idx) => {
+        const meta = CARD_META[c] || { art: '🃏', name: c };
+        return `<button class="btn btn-slate" onclick="submitGiveFavor(${idx})">${meta.art} ${meta.name}</button>`;
+      }).join('')}
+    </div>
+  `;
+  showModal({
+    icon: '😼',
+    title: `${requesterName} Meminta Kartu!`,
+    desc: 'Pilih 1 kartu dari tanganmu untuk diberikan:',
+    extraHtml: html,
+    buttons: []
+  });
+}
+
+function submitGiveFavor(cardIndex) {
+  closeModal();
+  sendToHost({ type: 'GIVE_FAVOR_CARD', cardIndex });
+}
+
+function openDefuseInsertModal(deckSize) {
+  const opts = [
+    { label: '🔝 Paling Atas Dek (Langsung kena giliran berikutnya!)', idx: deckSize },
+    { label: '🎲 Acak di Tengah Dek', idx: Math.floor(Math.random() * (deckSize + 1)) },
+    { label: '⬇️ Paling Bawah Dek (Aman sementara)', idx: 0 }
+  ];
+  const html = `
+    <div class="choice-list">
+      ${opts.map(o => `<button class="btn btn-mint" onclick="submitDefuseInsert(${o.idx})">${o.label}</button>`).join('')}
+    </div>
+  `;
+  showModal({
+    icon: '🛡️🐱',
+    title: 'Bom Berhasil Dijinakkan!',
+    desc: 'Sembunyikan kembali Exploding Kitten ke dalam dek:',
+    extraHtml: html,
+    buttons: []
+  });
+}
+
+function submitDefuseInsert(insertIndex) {
+  closeModal();
+  sendToHost({ type: 'INSERT_BOMB_AT', insertIndex });
+}
+
+/* ================= BOT AI LOGIC ================= */
+function checkBotTurn() {
+  if (!isHost || gameState.winner) return;
+  const bot = gameState.players[gameState.turnIndex];
+  if (!bot || !bot.alive || !bot.isBot) return;
+
+  setTimeout(() => {
+    if (gameState.winner || isAnimating) return;
+    const active = gameState.players[gameState.turnIndex];
+    if (!active || !active.alive || !active.isBot) return;
+
+    // Bot kadang memainkan Skip/Attack/Shuffle jika punya
+    const actionIdx = active.hand.findIndex(c => c === 'skip' || c === 'attack' || c === 'shuffle');
+    if (actionIdx !== -1 && Math.random() < 0.65) {
+      processHostAction(active.id, { type: 'PLAY_ACTION_CARD', cardIndex: actionIdx });
+      return;
+    }
+
+    processHostAction(active.id, { type: 'DRAW_CARD' });
+  }, 1350);
+}
+
+/* ================= ANIMATIONS & RENDER ================= */
+function sleep(ms) {
+  return new Promise(res => setTimeout(res, ms));
+}
+
+function getPlayerPos(playerId) {
+  if (playerId === myId) {
+    const r = document.getElementById('myHandTray').getBoundingClientRect();
+    return { left: r.left + r.width / 2 - 41, top: r.top + 8 };
+  }
+  const el = document.getElementById('opp_' + playerId);
+  if (el) {
+    const r = el.getBoundingClientRect();
+    return { left: r.left + r.width / 2 - 41, top: r.top };
+  }
+  return { left: window.innerWidth / 2 - 41, top: 60 };
+}
+
+function spawnFlyingCard(fromRect, toPos, cardType = null, durationMs = 620) {
+  const layer = document.getElementById('fxLayer');
+  const el = document.createElement('div');
+  el.className = 'flying-ek ek-card ' + (cardType ? cardType : 'deck-back');
+  if (cardType) {
+    const m = CARD_META[cardType] || { art: '🃏', name: cardType };
+    el.innerHTML = `<div class="ek-art">${m.art}</div><div class="ek-title">${m.name}</div>`;
+  } else {
+    el.innerHTML = `<div class="ek-art">🐱</div>`;
+  }
+
+  el.style.left = (fromRect.left ?? fromRect.x) + 'px';
+  el.style.top = (fromRect.top ?? fromRect.y) + 'px';
+  el.style.transitionDuration = durationMs + 'ms';
+  el.style.transform = 'scale(0.85) rotate(-14deg)';
+  layer.appendChild(el);
+  void el.offsetWidth;
+
+  el.style.left = toPos.left + 'px';
+  el.style.top = toPos.top + 'px';
+  el.style.transform = `scale(1.06) rotate(${Math.floor(Math.random() * 24) - 12}deg)`;
+  setTimeout(() => el.remove(), durationMs + 60);
+}
+
+function triggerBoomScreenFx() {
+  const flash = document.createElement('div');
+  flash.className = 'explosion-flash';
+  document.body.appendChild(flash);
+  setTimeout(() => flash.remove(), 900);
+
+  document.body.classList.remove('shake-boom');
+  void document.body.offsetWidth;
+  document.body.classList.add('shake-boom');
+}
+
+async function applyStateWithFx(newState, animEvent) {
+  if (!animEvent) {
+    gameState = newState;
+    renderArena(gameState);
+    return;
+  }
+
+  if (animEvent.kind === 'EMOJI') {
+    spawnFlyEmoji(animEvent.senderId, animEvent.emo);
+    return;
+  }
+
+  if (animEvent.sound) playSound(animEvent.sound);
+  if (animEvent.text) showToast(animEvent.text, 2600);
+  if (animEvent.explode) triggerBoomScreenFx();
+
+  if (animEvent.kind === 'DISCARD' && animEvent.cardType) {
+    isAnimating = true;
+    const fromPos = getPlayerPos(animEvent.playerId);
+    const slotRect = document.getElementById('discardSlot').getBoundingClientRect();
+    spawnFlyingCard(fromPos, { left: slotRect.left, top: slotRect.top }, animEvent.cardType, 620);
+    await sleep(580);
+    isAnimating = false;
+  } else if (animEvent.kind === 'DRAW_ANIM') {
+    isAnimating = true;
+    const deckRect = document.getElementById('drawDeckEl').getBoundingClientRect();
+    const toPos = getPlayerPos(animEvent.playerId);
+    spawnFlyingCard(deckRect, toPos, null, 560);
+    await sleep(520);
+    isAnimating = false;
+  } else if (animEvent.kind === 'BOOM_FX') {
+    isAnimating = true;
+    await sleep(650);
+    isAnimating = false;
+  }
+
+  gameState = newState;
+  renderArena(gameState);
+}
+
+function spawnFlyEmoji(senderId, emo) {
+  const pos = getPlayerPos(senderId);
+  const el = document.createElement('div');
+  el.className = 'fly-emo';
+  el.textContent = emo;
+  el.style.left = (pos.left + 18) + 'px';
+  el.style.top = pos.top + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1700);
+}
+
+function renderArena(state) {
+  document.getElementById('deckCountChip').textContent = `🃏 Dek: ${state.deck.length}`;
+
+  const atkBadge = document.getElementById('attackStackBadge');
+  if (state.turnsRemainingToDraw > 1 && !state.winner) {
+    atkBadge.style.display = 'inline-flex';
+    atkBadge.textContent = `⚡ Sisa Tarikan: ${state.turnsRemainingToDraw}x`;
+  } else {
+    atkBadge.style.display = 'none';
+  }
+
+  const topDisc = state.discardPile[state.discardPile.length - 1];
+  const discSlot = document.getElementById('discardSlot');
+  if (topDisc) {
+    discSlot.innerHTML = renderCardHtml(topDisc);
+  }
+
+  const active = state.players[state.turnIndex];
+  const isMyTurn = !isAnimating && !state.winner && active && active.alive && active.id === myId;
+
+  const deckEl = document.getElementById('drawDeckEl');
+  deckEl.classList.toggle('can-draw', isMyTurn);
+
+  document.getElementById('opponentsBar').innerHTML = state.players
+    .filter(p => p.id !== myId)
+    .map(p => {
+      const isAct = !state.winner && active && active.id === p.id;
+      return `
+        <div class="opp-pod ${isAct ? 'active' : ''} ${!p.alive ? 'eliminated' : ''}" id="opp_${p.id}">
+          <div class="opp-emo">${p.alive ? p.avatar : '💥'}</div>
+          <div class="opp-nm">${p.name}</div>
+          <div class="opp-cnt">${p.alive ? `${p.hand.length} 🃏` : 'MELEDAK'}</div>
+        </div>
+      `;
+    }).join('');
+
+  const turnBadge = document.getElementById('turnBadge');
+  if (state.winner) {
+    turnBadge.textContent = `🏆 Pemenang: ${state.winner}!`;
+    turnBadge.classList.remove('my-turn');
+  } else if (isMyTurn) {
+    turnBadge.textContent = `🔥 GILIRAN KAMU (${state.turnsRemainingToDraw}x tarik)`;
+    turnBadge.classList.add('my-turn');
+  } else if (active) {
+    turnBadge.textContent = `⏳ Giliran ${active.avatar} ${active.name}`;
+    turnBadge.classList.remove('my-turn');
+  }
+
+  const me = state.players.find(p => p.id === myId);
+  const handTray = document.getElementById('myHandTray');
+  if (me) {
+    if (!me.alive) {
+      handTray.innerHTML = `<div style="padding:18px; color:var(--crimson); font-weight:700;">💥 Kamu sudah meledak! Menonton sisa pertarungan...</div>`;
+    } else {
+      handTray.innerHTML = me.hand.map((c, idx) => {
+        const canAct = isMyTurn && c !== 'defuse' && c !== 'cat_bomb';
+        const cls = canAct ? 'actionable' : 'passive-card';
+        return renderCardHtml(c, cls, `onclick="onPlayHandCard(${idx})"`);
+      }).join('');
+    }
+  }
+
+  if (state.winner && lastWinnerShown !== state.winner) {
+    lastWinnerShown = state.winner;
+    playSound('win');
+    setTimeout(() => {
+      showModal({
+        icon: '🏆',
+        title: `${state.winner} Menang!`,
+        desc: isHost
+          ? 'Selamat! Mau kocok ulang dek untuk ronde berikutnya?'
+          : 'Permainan selesai! Menunggu Host memulai ronde baru.',
+        buttons: isHost
+          ? [
+              { text: 'Lobby', cls: 'btn-slate', onClick: () => resetToStart() },
+              { text: 'Main Lagi', cls: 'btn-mint', onClick: () => startGame() }
+            ]
+          : [
+              { text: 'Lobby', cls: 'btn-sky', onClick: () => resetToStart() }
+            ]
+      });
+    }, 700);
+  }
+}
+</script>
+</body>
+</html>
