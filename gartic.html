@@ -1,0 +1,1742 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Tebak Gambar P2P (Skribbl / Gartic Style)</title>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1324;
+    --panel: rgba(24, 30, 54, 0.9);
+    --gold: #ffd166;
+    --mint: #06d6a0;
+    --rose: #ff4d6d;
+    --sky: #4cc9f0;
+    --violet: #a855f7;
+    --border: rgba(255, 255, 255, 0.14);
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    font-family: 'Fredoka', sans-serif;
+  }
+
+  body {
+    background: radial-gradient(circle at top, #1d274b 0%, var(--bg) 100%);
+    color: #fff;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ================= LOADING ================= */
+  #loadingScreen {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(circle at center, #1d274b 0%, #090c18 100%);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    transition: opacity 0.5s ease, visibility 0.5s ease;
+  }
+  #loadingScreen.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .pencil-bounce {
+    font-size: 56px;
+    animation: pencilWiggle 1.1s infinite ease-in-out;
+    filter: drop-shadow(0 12px 24px rgba(76, 201, 240, 0.35));
+  }
+  @keyframes pencilWiggle {
+    0%, 100% { transform: rotate(-18deg) translateY(0); }
+    50% { transform: rotate(18deg) translateY(-10px); }
+  }
+  .load-pill {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid var(--border);
+    padding: 9px 20px;
+    border-radius: 999px;
+    font-size: 15px;
+    color: rgba(255,255,255,0.9);
+    text-align: center;
+    max-width: 90vw;
+  }
+
+  /* ================= SCREENS ================= */
+  .screen {
+    display: none;
+    flex: 1;
+    flex-direction: column;
+    padding: 12px;
+    max-width: 1160px;
+    width: 100%;
+    margin: 0 auto;
+    gap: 10px;
+  }
+  .screen.active { display: flex; }
+
+  #lobbyScreen {
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+  }
+
+  .title-box { text-align: center; }
+  .title-box h1 {
+    font-size: clamp(28px, 5vw, 40px);
+    background: linear-gradient(90deg, var(--gold), var(--sky), var(--mint));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .title-box p {
+    font-size: 13px;
+    color: rgba(255,255,255,0.68);
+  }
+
+  .glass-card {
+    background: var(--panel);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 20px;
+    width: 100%;
+    max-width: 440px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 20px 44px rgba(0,0,0,0.45);
+  }
+
+  input[type="text"] {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1.5px solid rgba(255,255,255,0.18);
+    background: rgba(8, 11, 22, 0.58);
+    color: #fff;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  input[type="text"]:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(255, 209, 102, 0.16);
+  }
+
+  .btn {
+    padding: 12px 15px;
+    border: none;
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.36);
+    transition: transform 0.12s ease, filter 0.15s ease, opacity 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .btn:hover:not(:disabled) { filter: brightness(1.07); }
+  .btn:active:not(:disabled) {
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 rgba(0,0,0,0.36);
+  }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .btn-mint { background: linear-gradient(135deg, #06d6a0, #059669); color: #052219; }
+  .btn-sky { background: linear-gradient(135deg, #4cc9f0, #2563eb); }
+  .btn-rose { background: linear-gradient(135deg, #ff4d6d, #be123c); }
+  .btn-gold { background: linear-gradient(135deg, #ffd166, #f59e0b); color: #1b1302; }
+  .btn-slate { background: rgba(255,255,255,0.13); border: 1px solid rgba(255,255,255,0.14); }
+
+  .row { display: flex; gap: 8px; }
+
+  .invite-banner {
+    background: rgba(76, 201, 240, 0.15);
+    border: 1px solid rgba(76, 201, 240, 0.45);
+    border-radius: 14px;
+    padding: 10px 14px;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .code-box {
+    background: rgba(8, 12, 24, 0.75);
+    border: 1.5px dashed var(--gold);
+    border-radius: 16px;
+    padding: 11px;
+    text-align: center;
+  }
+  .code-big {
+    font-size: 28px;
+    letter-spacing: 6px;
+    color: var(--gold);
+    font-weight: 700;
+  }
+
+  .share-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 6px 6px 6px 12px;
+  }
+  .share-bar span {
+    flex: 1;
+    font-size: 12px;
+    color: #c8d6ff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .lobby-list {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    max-height: 185px;
+    overflow-y: auto;
+  }
+  .lobby-row {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 12px;
+    padding: 9px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+  }
+
+  /* ================= TOP GAME HUD ================= */
+  .top-hud {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    backdrop-filter: blur(12px);
+  }
+
+  .word-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .word-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.65);
+  }
+  .word-clue {
+    font-size: clamp(16px, 2.6vw, 22px);
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--gold);
+  }
+
+  .timer-pill {
+    background: rgba(0,0,0,0.45);
+    border: 2px solid var(--mint);
+    border-radius: 14px;
+    padding: 6px 13px;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--mint);
+    transition: border-color 0.2s, color 0.2s, transform 0.2s;
+  }
+  .timer-pill.urgent {
+    border-color: var(--rose);
+    color: var(--rose);
+    animation: timerPanic 0.45s infinite alternate ease-in-out;
+  }
+  @keyframes timerPanic {
+    from { transform: scale(1) rotate(-2deg); }
+    to { transform: scale(1.1) rotate(2deg); }
+  }
+
+  /* ================= MAIN GAME GRID ================= */
+  .play-grid {
+    display: grid;
+    grid-template-columns: 210px minmax(280px, 1fr) 290px;
+    gap: 10px;
+    align-items: start;
+  }
+  @media (max-width: 960px) {
+    .play-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* SCOREBOARD */
+  .board-side-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    backdrop-filter: blur(12px);
+  }
+  .score-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 430px;
+    overflow-y: auto;
+  }
+  .score-item {
+    background: rgba(255,255,255,0.06);
+    border: 1.5px solid rgba(255,255,255,0.08);
+    border-radius: 13px;
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .score-item.drawer {
+    border-color: var(--sky);
+    background: rgba(76, 201, 240, 0.14);
+  }
+  .score-item.guessed {
+    border-color: var(--mint);
+    background: rgba(6, 214, 160, 0.15);
+  }
+  .score-pts {
+    font-weight: 700;
+    color: var(--gold);
+  }
+
+  /* CANVAS & DRAWING TOOLS */
+  .canvas-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: relative;
+    backdrop-filter: blur(12px);
+  }
+
+  .canvas-stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: inset 0 0 0 2px rgba(0,0,0,0.08);
+  }
+
+  #drawCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    touch-action: none;
+    cursor: crosshair;
+  }
+
+  .canvas-fx-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 10;
+  }
+
+  .celebrate-burst {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    background: rgba(15, 23, 42, 0.9);
+    color: var(--mint);
+    border: 2px solid var(--mint);
+    padding: 10px 20px;
+    border-radius: 999px;
+    font-size: 17px;
+    font-weight: 700;
+    box-shadow: 0 14px 32px rgba(0,0,0,0.45);
+    animation: burstPop 1.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    white-space: nowrap;
+  }
+  @keyframes burstPop {
+    0%   { transform: translate(-50%, -50%) scale(0.3) rotate(-8deg); opacity: 0; }
+    25%  { transform: translate(-50%, -56%) scale(1.12) rotate(3deg); opacity: 1; }
+    80%  { transform: translate(-50%, -64%) scale(1) rotate(0deg); opacity: 1; }
+    100% { transform: translate(-50%, -78%) scale(0.85); opacity: 0; }
+  }
+
+  .confetti-piece {
+    position: absolute;
+    top: -16px;
+    font-size: 22px;
+    animation: confettiFall 1.5s linear forwards;
+  }
+  @keyframes confettiFall {
+    0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(380px) rotate(360deg); opacity: 0; }
+  }
+
+  .tools-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 2px 4px;
+  }
+
+  .palette {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .swatch {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2.5px solid rgba(255,255,255,0.65);
+    cursor: pointer;
+    transition: transform 0.14s;
+  }
+  .swatch.active {
+    transform: scale(1.24);
+    border-color: var(--gold);
+    box-shadow: 0 0 10px rgba(255,209,102,0.8);
+  }
+
+  .brush-sizes {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .size-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .size-btn.active {
+    background: var(--sky);
+    color: #061829;
+    border-color: #fff;
+  }
+
+  /* CHAT & GUESS PANEL */
+  .chat-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    height: 450px;
+    backdrop-filter: blur(12px);
+  }
+  @media (max-width: 960px) {
+    .chat-card { height: 290px; }
+  }
+
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-right: 4px;
+    margin-bottom: 8px;
+  }
+  .chat-msg {
+    background: rgba(255,255,255,0.06);
+    border-radius: 11px;
+    padding: 7px 10px;
+    font-size: 13px;
+    line-height: 1.35;
+    word-break: break-word;
+    animation: msgSlide 0.2s ease;
+  }
+  @keyframes msgSlide {
+    from { transform: translateY(6px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .chat-msg.correct {
+    background: rgba(6, 214, 160, 0.22);
+    border: 1px solid rgba(6, 214, 160, 0.55);
+    color: #9ef9dc;
+    font-weight: 700;
+  }
+  .chat-msg.system {
+    background: rgba(255, 209, 102, 0.14);
+    color: var(--gold);
+    text-align: center;
+    font-size: 12px;
+  }
+
+  .chat-form {
+    display: flex;
+    gap: 6px;
+  }
+  .chat-form input {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  /* TOAST & MODAL */
+  .toast-wrap {
+    position: fixed;
+    top: 14%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 700;
+    pointer-events: none;
+    max-width: 92vw;
+  }
+  .toast-pill {
+    background: rgba(14, 19, 36, 0.94);
+    backdrop-filter: blur(14px);
+    color: #fff;
+    border: 1.5px solid rgba(255, 209, 102, 0.75);
+    border-radius: 999px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    box-shadow: 0 14px 32px rgba(0,0,0,0.55);
+    opacity: 0;
+    transform: translateY(-12px) scale(0.95);
+    transition: opacity 0.25s ease, transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .toast-pill.show {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(6, 9, 18, 0.78);
+    backdrop-filter: blur(8px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 800;
+  }
+  .modal-backdrop.active { display: flex; }
+
+  .modal-box {
+    background: rgba(24, 31, 56, 0.97);
+    border: 1.5px solid var(--border);
+    border-radius: 24px;
+    padding: 22px 18px;
+    width: 100%;
+    max-width: 370px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 24px 54px rgba(0,0,0,0.65);
+    animation: popScale 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes popScale {
+    0% { transform: scale(0.84); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .word-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+</style>
+</head>
+<body>
+
+<!-- LOADING SCREEN -->
+<div id="loadingScreen">
+  <div class="pencil-bounce">✏️</div>
+  <div class="load-pill" id="loadText">Menyiapkan kanvas gambar & daftar kata rahasia...</div>
+</div>
+
+<!-- TOAST ELEGAN -->
+<div class="toast-wrap">
+  <div class="toast-pill" id="toastPill"></div>
+</div>
+
+<!-- MODAL ELEGAN -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal-box">
+    <div id="mIcon" style="font-size:42px;">🎨</div>
+    <div id="mTitle" style="font-size:20px; font-weight:700; color:var(--gold);">Judul</div>
+    <div id="mDesc" style="font-size:14px; color:rgba(255,255,255,0.85); line-height:1.45;">Pesan</div>
+    <div id="mExtra"></div>
+    <div id="mBtns" style="display:flex; gap:8px; margin-top:4px;"></div>
+  </div>
+</div>
+
+<!-- LOBBY SCREEN -->
+<div id="lobbyScreen" class="screen active">
+  <div class="title-box">
+    <h1>TEBAK GAMBAR P2P</h1>
+    <p>Gambar di Layar Sentuh • Tebak Cepat di Chat • Tanpa Firebase</p>
+  </div>
+
+  <div class="glass-card" id="entryCard">
+    <div class="invite-banner" id="inviteBanner" style="display:none;">
+      🔗 Diundang ke Room <strong id="invitedCode" style="color:var(--gold);">-----</strong>! Tulis namamu lalu gabung.
+    </div>
+
+    <input type="text" id="nameInput" placeholder="Masukkan Nama Kamu" maxlength="12">
+
+    <div id="createBox">
+      <button class="btn btn-mint" style="width:100%;" onclick="createRoom()">👑 Buat Room Baru (Host)</button>
+    </div>
+
+    <div id="joinBox">
+      <div style="text-align:center; font-size:12px; opacity:0.6; margin-bottom:8px;">— ATAU GABUNG ROOM —</div>
+      <div class="row">
+        <input type="text" id="codeInput" placeholder="KODE 5 HURUF" maxlength="5" style="text-transform:uppercase; text-align:center; font-weight:700; letter-spacing:3px;">
+        <button class="btn btn-sky" id="joinBtn" onclick="joinRoom()">Gabung</button>
+      </div>
+    </div>
+
+    <div id="lobbyStatus" style="text-align:center; font-size:13px; color:var(--gold); min-height:18px;"></div>
+  </div>
+
+  <div class="glass-card" id="roomCard" style="display:none;">
+    <div class="code-box">
+      <div style="font-size:11px; opacity:0.75;">KODE ROOM</div>
+      <div class="code-big" id="roomCodeText">-----</div>
+    </div>
+
+    <div class="share-bar">
+      <span id="shareLinkText">-</span>
+      <button class="btn btn-gold" style="padding:8px 11px; font-size:12px; border-radius:10px;" onclick="copyLink()">📋 Salin</button>
+    </div>
+    <button class="btn btn-sky" style="padding:10px 14px; font-size:13px;" onclick="shareLink()">📤 Bagikan Link ke Chat</button>
+
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <strong id="lobbyCountLabel">Pemain (1/8)</strong>
+      <button class="btn btn-slate" id="addBotBtn" style="padding:7px 11px; font-size:12px;" onclick="addBot()">🤖 + Bot Penebak</button>
+    </div>
+
+    <div class="lobby-list" id="lobbyPlayerList"></div>
+
+    <button class="btn btn-mint" id="startGameBtn" onclick="startGame()" style="display:none;">🎨 Mulai Bermain!</button>
+    <div id="waitHostMsg" style="text-align:center; font-size:13px; opacity:0.75; display:none;">Menunggu Host memulai ronde...</div>
+  </div>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="gameScreen" class="screen">
+  <div class="top-hud">
+    <div id="roundBadge" style="font-size:13px; font-weight:700; color:var(--sky);">Ronde 1</div>
+    <div class="word-display">
+      <div class="word-label" id="wordSubLabel">KATA RAHASIA</div>
+      <div class="word-clue" id="wordClueText">_ _ _ _ _</div>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <div class="timer-pill" id="timerPill">60s</div>
+      <button class="btn btn-slate" style="padding:7px 10px; font-size:12px;" id="muteBtn" onclick="toggleMute()">🔊</button>
+      <button class="btn btn-rose" style="padding:7px 10px; font-size:12px;" onclick="confirmQuit()">Keluar</button>
+    </div>
+  </div>
+
+  <div class="play-grid">
+    <!-- PAPAN SKOR -->
+    <div class="board-side-card">
+      <div style="font-size:13px; font-weight:700; display:flex; justify-content:space-between;">
+        <span>🏆 Papan Skor</span>
+        <span id="playerNumLabel">0/8</span>
+      </div>
+      <div class="score-list" id="scoreList"></div>
+    </div>
+
+    <!-- KANVAS MENGGAMBAR -->
+    <div class="canvas-card">
+      <div class="canvas-stage">
+        <canvas id="drawCanvas" width="800" height="600"></canvas>
+        <div class="canvas-fx-overlay" id="canvasFxOverlay"></div>
+      </div>
+
+      <div class="tools-bar" id="drawerToolbar">
+        <div class="palette" id="colorPalette"></div>
+        <div class="brush-sizes">
+          <button class="size-btn" data-size="4" onclick="setBrushSize(4, this)">S</button>
+          <button class="size-btn active" data-size="9" onclick="setBrushSize(9, this)">M</button>
+          <button class="size-btn" data-size="18" onclick="setBrushSize(18, this)">L</button>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn btn-slate" style="padding:7px 10px; font-size:12px;" id="eraserBtn" onclick="toggleEraser()">🧹 Hapus</button>
+          <button class="btn btn-rose" style="padding:7px 10px; font-size:12px;" id="clearBtn" onclick="requestClearCanvas()">🗑️ Bersihkan</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHAT & TEBAK KATA -->
+    <div class="chat-card">
+      <div style="font-size:13px; font-weight:700; margin-bottom:6px; color:var(--gold);">💬 Tebakan & Chat</div>
+      <div class="chat-messages" id="chatMessages"></div>
+      <form class="chat-form" onsubmit="submitGuessOrChat(event)">
+        <input type="text" id="chatInput" placeholder="Ketik tebakanmu di sini..." autocomplete="off" maxlength="40">
+        <button class="btn btn-mint" style="padding:10px 13px; font-size:13px;" type="submit">Kirim</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= SOUND FX (WEB AUDIO API) ================= */
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let actx = null;
+let isMuted = false;
+
+function toggleMute() {
+  isMuted = !isMuted;
+  document.getElementById('muteBtn').textContent = isMuted ? '🔇' : '🔊';
+  if (!isMuted) playSound('pop');
+}
+
+function playSound(type) {
+  if (isMuted) return;
+  try {
+    if (!actx) actx = new AudioCtx();
+    if (actx.state === 'suspended') actx.resume();
+    const now = actx.currentTime;
+    const osc = actx.createOscillator();
+    const gain = actx.createGain();
+    osc.connect(gain);
+    gain.connect(actx.destination);
+
+    if (type === 'stroke') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(580 + Math.random() * 90, now);
+      gain.gain.setValueAtTime(0.025, now);
+      gain.gain.exponentialRampToValueAtTime(0.002, now + 0.04);
+      osc.start(now);
+      osc.stop(now + 0.04);
+    } else if (type === 'correct') {
+      osc.type = 'triangle';
+      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+        osc.frequency.setValueAtTime(f, now + i * 0.08);
+      });
+      gain.gain.setValueAtTime(0.22, now);
+      gain.gain.exponentialRampToValueAtTime(0.008, now + 0.45);
+      osc.start(now);
+      osc.stop(now + 0.45);
+    } else if (type === 'wrong') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(190, now);
+      osc.frequency.exponentialRampToValueAtTime(120, now + 0.14);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.005, now + 0.14);
+      osc.start(now);
+      osc.stop(now + 0.14);
+    } else if (type === 'tick') {
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(880, now);
+      gain.gain.setValueAtTime(0.09, now);
+      gain.gain.exponentialRampToValueAtTime(0.005, now + 0.06);
+      osc.start(now);
+      osc.stop(now + 0.06);
+    } else if (type === 'roundEnd') {
+      osc.type = 'triangle';
+      [440, 392, 349.23, 293.66].forEach((f, i) => {
+        osc.frequency.setValueAtTime(f, now + i * 0.12);
+      });
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.008, now + 0.5);
+      osc.start(now);
+      osc.stop(now + 0.5);
+    } else {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(480, now);
+      gain.gain.setValueAtTime(0.11, now);
+      gain.gain.exponentialRampToValueAtTime(0.005, now + 0.08);
+      osc.start(now);
+      osc.stop(now + 0.08);
+    }
+  } catch (e) {}
+}
+
+/* ================= TOAST & MODAL ELEGAN ================= */
+function showToast(msg, ms = 2300) {
+  const pill = document.getElementById('toastPill');
+  pill.textContent = msg;
+  pill.classList.add('show');
+  clearTimeout(pill._t);
+  pill._t = setTimeout(() => pill.classList.remove('show'), ms);
+}
+
+function showModal({ icon = '🎨', title = '', desc = '', extraHtml = '', buttons = [] }) {
+  document.getElementById('mIcon').textContent = icon;
+  document.getElementById('mTitle').textContent = title;
+  document.getElementById('mDesc').textContent = desc;
+  document.getElementById('mExtra').innerHTML = extraHtml;
+  const btns = document.getElementById('mBtns');
+  btns.innerHTML = '';
+  buttons.forEach(b => {
+    const btn = document.createElement('button');
+    btn.className = `btn ${b.cls || 'btn-sky'}`;
+    btn.style.flex = '1';
+    btn.textContent = b.text;
+    btn.onclick = () => {
+      document.getElementById('modalBackdrop').classList.remove('active');
+      if (typeof b.onClick === 'function') b.onClick();
+    };
+    btns.appendChild(btn);
+  });
+  document.getElementById('modalBackdrop').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('modalBackdrop').classList.remove('active');
+}
+
+/* ================= LOADING ================= */
+const loadTips = [
+  "Menyiapkan kanvas gambar & daftar kata rahasia...",
+  "Menajamkan spidol warna-warni buat si penggambar...",
+  "Menghubungkan jalur P2P agar goresan real-time..."
+];
+let ltIdx = 0;
+const ltTimer = setInterval(() => {
+  ltIdx = (ltIdx + 1) % loadTips.length;
+  const el = document.getElementById('loadText');
+  if (el) el.textContent = loadTips[ltIdx];
+}, 850);
+
+/* ================= BANK KATA RAHASIA ================= */
+const WORD_BANK = [
+  "KUCING", "PISANG", "SEPEDA", "MATAHARI", "ROKET", "GURITA", "PAYUNG", "PIZZA",
+  "DINOSAURUS", "KAMERA", "KACAMATA", "SEPATU", "BALON", "IKAN HIU", " Gitar", "RUMAH",
+  "POHON", "PELANGI", "ES KRIM", "BURUNG HANTU", "MOBIL", "KUE TART", "LAPTOP", "JAM DINDING",
+  "LANDAK", "SEMANGKA", "PERAHU", "BINTANG", "KURA-KURA", "TOPI", "TELEPON", "NASI GORENG"
+].map(w => w.trim());
+
+function pickThreeWords() {
+  const pool = [...WORD_BANK];
+  const chosen = [];
+  while (chosen.length < 3 && pool.length > 0) {
+    const idx = Math.floor(Math.random() * pool.length);
+    chosen.push(pool.splice(idx, 1)[0]);
+  }
+  return chosen;
+}
+
+function makeBlankClue(word) {
+  return word.split('').map(ch => ch === ' ' ? '  ' : '_').join(' ');
+}
+
+/* ================= CANVAS DRAWING ENGINE ================= */
+const canvas = document.getElementById('drawCanvas');
+const ctx = canvas.getContext('2d');
+const COLORS = ['#111827', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#a855f7', '#ec4899', '#78350f'];
+let currentColor = COLORS[0];
+let currentSize = 9;
+let isEraser = false;
+let isDrawingLocal = false;
+let lastNormPt = null;
+
+function initPalette() {
+  const pal = document.getElementById('colorPalette');
+  pal.innerHTML = COLORS.map((hex, i) => `
+    <button class="swatch ${i === 0 ? 'active' : ''}" style="background:${hex};" onclick="selectColor('${hex}', this)"></button>
+  `).join('');
+}
+
+function selectColor(hex, el) {
+  isEraser = false;
+  currentColor = hex;
+  document.getElementById('eraserBtn').classList.remove('btn-gold');
+  document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function setBrushSize(sz, el) {
+  isEraser = false;
+  currentSize = sz;
+  document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function toggleEraser() {
+  isEraser = !isEraser;
+  document.getElementById('eraserBtn').classList.toggle('btn-gold', isEraser);
+  if (isEraser) {
+    document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+  }
+}
+
+function clearCanvasLocal() {
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function drawNormalizedSegment(p1, p2, color, size) {
+  const x1 = p1.x * canvas.width;
+  const y1 = p1.y * canvas.height;
+  const x2 = p2.x * canvas.width;
+  const y2 = p2.y * canvas.height;
+
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = size;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function getNormPointFromEvent(e) {
+  const rect = canvas.getBoundingClientRect();
+  const clientX = e.touches && e.touches[0] ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches && e.touches[0] ? e.touches[0].clientY : e.clientY;
+  return {
+    x: Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)),
+    y: Math.min(1, Math.max(0, (clientY - rect.top) / rect.height))
+  };
+}
+
+function amIDrawingNow() {
+  const drawer = gameState.players[gameState.drawerIndex];
+  return gameState.phase === 'drawing' && drawer && drawer.id === myId;
+}
+
+function handlePointerDown(e) {
+  if (!amIDrawingNow()) return;
+  e.preventDefault();
+  isDrawingLocal = true;
+  lastNormPt = getNormPointFromEvent(e);
+  const strokeColor = isEraser ? '#ffffff' : currentColor;
+  const strokeSize = isEraser ? currentSize * 2.4 : currentSize;
+  drawNormalizedSegment(lastNormPt, lastNormPt, strokeColor, strokeSize);
+  sendToHost({
+    type: 'DRAW_SEG',
+    from: lastNormPt,
+    to: lastNormPt,
+    color: strokeColor,
+    size: strokeSize
+  });
+}
+
+function handlePointerMove(e) {
+  if (!isDrawingLocal || !amIDrawingNow()) return;
+  e.preventDefault();
+  const pt = getNormPointFromEvent(e);
+  const strokeColor = isEraser ? '#ffffff' : currentColor;
+  const strokeSize = isEraser ? currentSize * 2.4 : currentSize;
+  drawNormalizedSegment(lastNormPt, pt, strokeColor, strokeSize);
+  playSound('stroke');
+  sendToHost({
+    type: 'DRAW_SEG',
+    from: lastNormPt,
+    to: pt,
+    color: strokeColor,
+    size: strokeSize
+  });
+  lastNormPt = pt;
+}
+
+function handlePointerUp() {
+  isDrawingLocal = false;
+  lastNormPt = null;
+}
+
+canvas.addEventListener('pointerdown', handlePointerDown);
+canvas.addEventListener('pointermove', handlePointerMove);
+window.addEventListener('pointerup', handlePointerUp);
+canvas.addEventListener('touchstart', handlePointerDown, { passive: false });
+canvas.addEventListener('touchmove', handlePointerMove, { passive: false });
+window.addEventListener('touchend', handlePointerUp);
+
+/* ================= PEERJS P2P MULTIPLAYER ================= */
+const PEER_PREFIX = "SKRIBBLP2P2026-";
+const AVATARS = ["🎨", "🦊", "🐼", "🐸", "🐯", "🦄", "🐧", "🐙"];
+
+let peer = null;
+let isHost = false;
+let myId = "";
+let myName = "";
+let hostConn = null;
+let clientConns = {};
+let activeRoomCode = "";
+let isInvited = false;
+let hostTimerInterval = null;
+let secretWordForDrawer = ""; // Hanya diketahui Host & penggambar aktif
+
+let gameState = {
+  phase: 'lobby', // 'lobby' | 'choosing' | 'drawing' | 'round_end'
+  round: 1,
+  maxRounds: 3,
+  players: [], // { id, name, avatar, isBot, score, guessedThisRound }
+  drawerIndex: 0,
+  secretWordLength: 0,
+  clueText: "",
+  timeLeft: 60,
+  winner: null
+};
+
+function genCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let s = "";
+  for (let i = 0; i < 5; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+function buildShareUrl(code) {
+  const u = new URL(window.location.href);
+  u.searchParams.set('room', code);
+  return u.toString();
+}
+
+function checkInviteUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const code = (params.get('room') || '').trim().toUpperCase().slice(0, 5);
+  if (code.length >= 4) {
+    isInvited = true;
+    document.getElementById('codeInput').value = code;
+    document.getElementById('invitedCode').textContent = code;
+    document.getElementById('inviteBanner').style.display = 'block';
+    document.getElementById('createBox').style.display = 'none';
+    document.getElementById('joinBtn').textContent = 'Gabung Room';
+  }
+}
+
+function updateRoomLinkUI(code) {
+  activeRoomCode = code;
+  document.getElementById('roomCodeText').textContent = code;
+  document.getElementById('shareLinkText').textContent = buildShareUrl(code);
+}
+
+function copyLink() {
+  if (!activeRoomCode) return;
+  const url = buildShareUrl(activeRoomCode);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(() => showToast("📋 Link room tersalin!"))
+      .catch(() => fallbackCopyStr(url));
+  } else {
+    fallbackCopyStr(url);
+  }
+}
+
+function fallbackCopyStr(str) {
+  const ta = document.createElement('textarea');
+  ta.value = str;
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  ta.remove();
+  showToast("📋 Link room tersalin!");
+}
+
+async function shareLink() {
+  if (!activeRoomCode) return;
+  const url = buildShareUrl(activeRoomCode);
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: 'Mabar Tebak Gambar P2P!',
+        text: `Yuk main Tebak Gambar! Klik link ini, isi nama, lalu gabung (Kode: ${activeRoomCode})`,
+        url
+      });
+    } catch (e) {}
+  } else {
+    copyLink();
+  }
+}
+
+window.addEventListener('load', () => {
+  initPalette();
+  clearCanvasLocal();
+  checkInviteUrl();
+  setTimeout(() => {
+    clearInterval(ltTimer);
+    document.getElementById('loadingScreen').classList.add('hidden');
+  }, 1450);
+});
+
+/* ================= LOBBY ACTIONS ================= */
+function createRoom() {
+  myName = document.getElementById('nameInput').value.trim() || "Host Pelukis";
+  const code = genCode();
+  document.getElementById('lobbyStatus').textContent = "Membuat room P2P...";
+
+  peer = new Peer(PEER_PREFIX + code, {
+    config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+  });
+
+  peer.on('open', (id) => {
+    isHost = true;
+    myId = id;
+    gameState.players = [{
+      id: myId,
+      name: myName,
+      avatar: AVATARS[0],
+      isBot: false,
+      score: 0,
+      guessedThisRound: false
+    }];
+
+    document.getElementById('lobbyStatus').textContent = "";
+    document.getElementById('entryCard').style.display = 'none';
+    document.getElementById('roomCard').style.display = 'flex';
+    updateRoomLinkUI(code);
+    document.getElementById('startGameBtn').style.display = 'inline-flex';
+    renderLobbyPlayers();
+  });
+
+  peer.on('connection', (conn) => {
+    conn.on('data', (data) => handleHostReceive(conn, data));
+    conn.on('close', () => {
+      delete clientConns[conn.peer];
+      gameState.players = gameState.players.filter(p => p.id !== conn.peer);
+      if (gameState.drawerIndex >= gameState.players.length) gameState.drawerIndex = 0;
+      broadcastState();
+      renderLobbyPlayers();
+    });
+  });
+
+  peer.on('error', (err) => {
+    document.getElementById('lobbyStatus').textContent = "Gagal membuat room: " + err.type;
+  });
+}
+
+function joinRoom() {
+  const typed = document.getElementById('nameInput').value.trim();
+  if (isInvited && !typed) {
+    showToast("✍️ Ketik nama kamu dulu sebelum gabung!");
+    document.getElementById('nameInput').focus();
+    return;
+  }
+  myName = typed || "Penebak";
+  const code = document.getElementById('codeInput').value.trim().toUpperCase();
+  if (code.length < 4) {
+    document.getElementById('lobbyStatus').textContent = "Masukkan kode room yang valid!";
+    return;
+  }
+
+  document.getElementById('lobbyStatus').textContent = "Menghubungkan ke Host...";
+  peer = new Peer({
+    config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+  });
+
+  peer.on('open', (id) => {
+    myId = id;
+    hostConn = peer.connect(PEER_PREFIX + code, { reliable: true });
+
+    hostConn.on('open', () => {
+      hostConn.send({ type: 'JOIN', name: myName });
+      document.getElementById('lobbyStatus').textContent = "";
+      document.getElementById('entryCard').style.display = 'none';
+      document.getElementById('roomCard').style.display = 'flex';
+      updateRoomLinkUI(code);
+      document.getElementById('addBotBtn').style.display = 'none';
+      document.getElementById('waitHostMsg').style.display = 'block';
+    });
+
+    hostConn.on('data', (data) => handleClientReceive(data));
+    hostConn.on('close', () => {
+      showModal({
+        icon: '🔌',
+        title: 'Koneksi Terputus',
+        desc: 'Koneksi ke Host terputus atau permainan berakhir.',
+        buttons: [{ text: 'Kembali', cls: 'btn-sky', onClick: () => resetApp() }]
+      });
+    });
+  });
+
+  peer.on('error', () => {
+    document.getElementById('lobbyStatus').textContent = "Room tidak ditemukan! Cek kode lagi.";
+  });
+}
+
+function addBot() {
+  if (!isHost || gameState.players.length >= 8) return;
+  const botNames = ["Bot Pelukis", "Bot Jeli", "Bot Kilat", "Bot Kocak", "Bot Jenius", "Bot Hoki", "Bot Santuy"];
+  const idx = gameState.players.length;
+  gameState.players.push({
+    id: "BOT_" + Date.now() + "_" + idx,
+    name: botNames[idx % botNames.length],
+    avatar: AVATARS[idx % AVATARS.length],
+    isBot: true,
+    score: 0,
+    guessedThisRound: false
+  });
+  playSound('pop');
+  broadcastState();
+  renderLobbyPlayers();
+}
+
+function renderLobbyPlayers() {
+  document.getElementById('lobbyCountLabel').textContent = `Pemain (${gameState.players.length}/8)`;
+  document.getElementById('lobbyPlayerList').innerHTML = gameState.players.map((p, i) => `
+    <div class="lobby-row">
+      <span>${p.avatar} <strong>${p.name}</strong> ${p.id === myId ? '(Kamu)' : ''}</span>
+      <span style="font-size:12px; opacity:0.75;">${i === 0 ? '👑 Host' : (p.isBot ? '🤖 AI' : '📱 HP')}</span>
+    </div>
+  `).join('');
+}
+
+function resetApp() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete('room');
+  window.history.replaceState({}, '', url.toString());
+  window.location.reload();
+}
+
+function confirmQuit() {
+  showModal({
+    icon: '🚪',
+    title: 'Keluar Permainan?',
+    desc: 'Kamu akan keluar dari room Tebak Gambar ini.',
+    buttons: [
+      { text: 'Batal', cls: 'btn-slate' },
+      { text: 'Keluar', cls: 'btn-rose', onClick: () => resetApp() }
+    ]
+  });
+}
+
+/* ================= P2P MESSAGING ================= */
+function sendToHost(msg) {
+  if (isHost) {
+    processHostMessage(null, msg);
+  } else if (hostConn && hostConn.open) {
+    hostConn.send(msg);
+  }
+}
+
+function broadcast(msg) {
+  Object.values(clientConns).forEach(c => {
+    if (c.open) c.send(msg);
+  });
+}
+
+function broadcastState() {
+  broadcast({ type: 'STATE_SYNC', state: gameState });
+  renderGameUI(gameState);
+}
+
+function handleHostReceive(conn, data) {
+  if (data.type === 'JOIN') {
+    if (gameState.phase !== 'lobby' || gameState.players.length >= 8) {
+      conn.close();
+      return;
+    }
+    clientConns[conn.peer] = conn;
+    const idx = gameState.players.length;
+    gameState.players.push({
+      id: conn.peer,
+      name: data.name,
+      avatar: AVATARS[idx % AVATARS.length],
+      isBot: false,
+      score: 0,
+      guessedThisRound: false
+    });
+    broadcastState();
+    renderLobbyPlayers();
+  } else {
+    processHostMessage(conn ? conn.peer : myId, data);
+  }
+}
+
+function handleClientReceive(data) {
+  if (data.type === 'STATE_SYNC') {
+    const prevPhase = gameState.phase;
+    gameState = data.state;
+    if (gameState.phase !== 'lobby') {
+      document.getElementById('lobbyScreen').classList.remove('active');
+      document.getElementById('gameScreen').classList.add('active');
+    }
+    if (gameState.phase === 'choosing' && prevPhase !== 'choosing') {
+      clearCanvasLocal();
+    }
+    renderGameUI(gameState);
+  } else if (data.type === 'YOUR_WORD_CHOICES') {
+    openDrawerWordModal(data.choices);
+  } else if (data.type === 'YOUR_SECRET_WORD') {
+    secretWordForDrawer = data.word;
+    renderGameUI(gameState);
+  } else if (data.type === 'DRAW_SEG') {
+    drawNormalizedSegment(data.from, data.to, data.color, data.size);
+  } else if (data.type === 'CLEAR_CANVAS') {
+    clearCanvasLocal();
+  } else if (data.type === 'CHAT_EVENT') {
+    appendChatMessage(data.msg);
+  } else if (data.type === 'CORRECT_GUESS_FX') {
+    triggerCorrectCelebration(data.guesserName, data.pts);
+  } else if (data.type === 'ROUND_SUMMARY') {
+    openRoundSummaryModal(data.summary);
+  }
+}
+
+/* ================= HOST GAME ENGINE ================= */
+function startGame() {
+  if (!isHost) return;
+  if (gameState.players.length < 2) {
+    showToast("Minimal 2 pemain! Tambah Bot Penebak dulu 🤖");
+    return;
+  }
+
+  gameState.players.forEach(p => {
+    p.score = 0;
+    p.guessedThisRound = false;
+  });
+  gameState.round = 1;
+  gameState.drawerIndex = 0;
+  gameState.winner = null;
+
+  document.getElementById('chatMessages').innerHTML = '';
+  document.getElementById('lobbyScreen').classList.remove('active');
+  document.getElementById('gameScreen').classList.add('active');
+
+  prepareTurnForDrawer(0);
+}
+
+function prepareTurnForDrawer(drawerIdx) {
+  if (!isHost) return;
+  clearInterval(hostTimerInterval);
+
+  gameState.drawerIndex = drawerIdx;
+  gameState.phase = 'choosing';
+  gameState.timeLeft = 15;
+  gameState.players.forEach(p => { p.guessedThisRound = false; });
+  secretWordForDrawer = "";
+  gameState.clueText = "MEMILIH KATA...";
+
+  clearCanvasLocal();
+  broadcast({ type: 'CLEAR_CANVAS' });
+  broadcastState();
+
+  const drawer = gameState.players[drawerIdx];
+  const choices = pickThreeWords();
+
+  if (drawer.isBot) {
+    setTimeout(() => {
+      if (gameState.phase === 'choosing') {
+        beginDrawingWithWord(choices[0]);
+      }
+    }, 1100);
+  } else if (drawer.id === myId) {
+    openDrawerWordModal(choices);
+  } else {
+    const conn = clientConns[drawer.id];
+    if (conn && conn.open) {
+      conn.send({ type: 'YOUR_WORD_CHOICES', choices });
+    }
+  }
+
+  // Timer memilih kata (auto pilih jika habis)
+  hostTimerInterval = setInterval(() => {
+    if (gameState.phase !== 'choosing') {
+      clearInterval(hostTimerInterval);
+      return;
+    }
+    gameState.timeLeft -= 1;
+    if (gameState.timeLeft <= 0) {
+      clearInterval(hostTimerInterval);
+      beginDrawingWithWord(choices[0]);
+    } else {
+      broadcastState();
+    }
+  }, 1000);
+}
+
+function openDrawerWordModal(choices) {
+  showModal({
+    icon: '✏️',
+    title: 'Giliran Kamu Menggambar!',
+    desc: 'Pilih satu kata rahasia untuk digambar:',
+    extraHtml: `
+      <div class="word-choices">
+        ${choices.map(w => `
+          <button class="btn btn-gold" onclick="chooseSecretWord('${w.replace(/'/g, "\\'")}')">${w}</button>
+        `).join('')}
+      </div>
+    `,
+    buttons: []
+  });
+}
+
+function chooseSecretWord(word) {
+  closeModal();
+  sendToHost({ type: 'CHOOSE_WORD', word });
+}
+
+function beginDrawingWithWord(word) {
+  if (!isHost) return;
+  clearInterval(hostTimerInterval);
+
+  secretWordForDrawer = word.toUpperCase();
+  gameState.phase = 'drawing';
+  gameState.timeLeft = 60;
+  gameState.clueText = makeBlankClue(secretWordForDrawer);
+
+  const drawer = gameState.players[gameState.drawerIndex];
+  if (drawer.id === myId) {
+    renderGameUI(gameState);
+  } else if (clientConns[drawer.id] && clientConns[drawer.id].open) {
+    clientConns[drawer.id].send({ type: 'YOUR_SECRET_WORD', word: secretWordForDrawer });
+  }
+
+  pushChatSystem(`🎨 ${drawer.avatar} ${drawer.name} mulai menggambar! (${secretWordForDrawer.length} huruf)`);
+  broadcastState();
+
+  // Bot menggambar coretan lucu otomatis agar bisa dites solo juga
+  if (drawer.isBot) {
+    runBotDoodle();
+  }
+
+  hostTimerInterval = setInterval(() => {
+    if (gameState.phase !== 'drawing') {
+      clearInterval(hostTimerInterval);
+      return;
+    }
+    gameState.timeLeft -= 1;
+
+    // Buka 1 huruf petunjuk di detik ke-25 sebagai bantuan
+    if (gameState.timeLeft === 25) {
+      gameState.clueText = revealHintLetter(secretWordForDrawer, gameState.clueText);
+      pushChatSystem(`💡 Petunjuk baru terbuka: ${gameState.clueText}`);
+    }
+
+    if (gameState.timeLeft <= 5 && gameState.timeLeft > 0) {
+      playSound('tick');
+    }
+
+    if (gameState.timeLeft <= 0) {
+      clearInterval(hostTimerInterval);
+      finishDrawingTurn("⏰ Waktu habis!");
+    } else {
+      broadcastState();
+    }
+  }, 1000);
+}
+
+function revealHintLetter(secret, currentClue) {
+  const secretChars = secret.split('');
+  const clueParts = currentClue.split(' ');
+  const hiddenIndices = [];
+  for (let i = 0; i < secretChars.length; i++) {
+    if (clueParts[i] === '_' && secretChars[i] !== ' ') {
+      hiddenIndices.push(i);
+    }
+  }
+  if (hiddenIndices.length > 0) {
+    const pick = hiddenIndices[Math.floor(Math.random() * hiddenIndices.length)];
+    clueParts[pick] = secretChars[pick];
+  }
+  return clueParts.join(' ');
+}
+
+function runBotDoodle() {
+  let step = 0;
+  const botInterval = setInterval(() => {
+    if (gameState.phase !== 'drawing' || step > 18) {
+      clearInterval(botInterval);
+      return;
+    }
+    step++;
+    const a1 = (step / 18) * Math.PI * 2;
+    const a2 = ((step + 1) / 18) * Math.PI * 2;
+    const r = 0.22 + (step % 3) * 0.05;
+    const p1 = { x: 0.5 + Math.cos(a1) * r, y: 0.5 + Math.sin(a1) * r };
+    const p2 = { x: 0.5 + Math.cos(a2) * r, y: 0.5 + Math.sin(a2) * r };
+    const col = COLORS[step % COLORS.length];
+    drawNormalizedSegment(p1, p2, col, 8);
+    broadcast({ type: 'DRAW_SEG', from: p1, to: p2, color: col, size: 8 });
+  }, 650);
+}
+
+function processHostMessage(senderId, data) {
+  if (!isHost) return;
+  const actualSender = senderId || myId;
+
+  if (data.type === 'CHOOSE_WORD' && gameState.phase === 'choosing') {
+    const drawer = gameState.players[gameState.drawerIndex];
+    if (drawer && drawer.id === actualSender) {
+      beginDrawingWithWord(data.word);
+    }
+    return;
+  }
+
+  if (data.type === 'DRAW_SEG' && gameState.phase === 'drawing') {
+    const drawer = gameState.players[gameState.drawerIndex];
+    if (drawer && drawer.id === actualSender) {
+      broadcast(data);
+    }
+    return;
+  }
+
+  if (data.type === 'CLEAR_CANVAS' && gameState.phase === 'drawing') {
+    const drawer = gameState.players[gameState.drawerIndex];
+    if (drawer && drawer.id === actualSender) {
+      clearCanvasLocal();
+      broadcast({ type: 'CLEAR_CANVAS' });
+    }
+    return;
+  }
+
+  if (data.type === 'CHAT_GUESS') {
+    const player = gameState.players.find(p => p.id === actualSender);
+    const drawer = gameState.players[gameState.drawerIndex];
+    if (!player) return;
+
+    const text = (data.text || '').trim();
+    if (!text) return;
+
+    // Jika sedang fase menggambar & bukan penggambar & belum menebak benar
+    if (gameState.phase === 'drawing' && player.id !== drawer.id && !player.guessedThisRound) {
+      const normalizedGuess = text.toUpperCase().replace(/[^A-Z0-9\s-]/g, '').trim();
+      if (normalizedGuess === secretWordForDrawer) {
+        player.guessedThisRound = true;
+        const speedBonus = Math.max(20, Math.round((gameState.timeLeft / 60) * 120));
+        const earned = 80 + speedBonus;
+        player.score += earned;
+        drawer.score += 35;
+
+        const msgObj = {
+          kind: 'correct',
+          text: `🎉 ${player.avatar} ${player.name} menebak dengan benar! (+${earned} poin)`
+        };
+        pushChatToAll(msgObj);
+        broadcast({ type: 'CORRECT_GUESS_FX', guesserName: player.name, pts: earned });
+        triggerCorrectCelebration(player.name, earned);
+        broadcastState();
+
+        // Cek apakah semua penebak sudah menebak benar
+        const guessers = gameState.players.filter(p => p.id !== drawer.id);
+        if (guessers.length > 0 && guessers.every(g => g.guessedThisRound)) {
+          clearInterval(hostTimerInterval);
+          setTimeout(() => finishDrawingTurn("🌟 Semua sudah berhasil menebak!"), 900);
+        }
+        return;
+      }
+    }
+
+    // Jika sudah menebak benar di ronde ini, sembunyikan kata rahasia agar tidak bocor ke pemain lain
+    if (gameState.phase === 'drawing' && player.guessedThisRound) {
+      const safeText = text.toUpperCase().includes(secretWordForDrawer)
+        ? "🤫 (Menyembunyikan tebakan rahasia...)"
+        : text;
+      pushChatToAll({ kind: 'normal', text: `<strong>${player.avatar} ${player.name}:</strong> ${escapeHtml(safeText)}` });
+      return;
+    }
+
+    pushChatToAll({ kind: 'normal', text: `<strong>${player.avatar} ${player.name}:</strong> ${escapeHtml(text)}` });
+  }
+}
+
+function finishDrawingTurn(reasonText) {
+  if (!isHost) return;
+  clearInterval(hostTimerInterval);
+  gameState.phase = 'round_end';
+  const wordRevealed = secretWordForDrawer;
+  gameState.clueText = wordRevealed;
+  broadcastState();
+
+  const summary = {
+    reason: reasonText,
+    word: wordRevealed,
+    round: gameState.round,
+    maxRounds: gameState.maxRounds
+  };
+  broadcast({ type: 'ROUND_SUMMARY', summary });
+  openRoundSummaryModal(summary);
+
+  setTimeout(() => {
+    if (!isHost) return;
+    closeModal();
+    const nextDrawer = gameState.drawerIndex + 1;
+    if (nextDrawer < gameState.players.length) {
+      prepareTurnForDrawer(nextDrawer);
+    } else if (gameState.round < gameState.maxRounds) {
+      gameState.round += 1;
+      prepareTurnForDrawer(0);
+    } else {
+      // Selesai semua ronde -> tentukan juara
+      const sorted = [...gameState.players].sort((a, b) => b.score - a.score);
+      const champ = sorted[0];
+      showModal({
+        icon: '🏆',
+        title: `Juara: ${champ.avatar} ${champ.name}!`,
+        desc: `Skor tertinggi: ${champ.score} poin. Mau main lagi dari ronde 1?`,
+        buttons: [
+          { text: 'Lobby', cls: 'btn-slate', onClick: () => resetApp() },
+          { text: 'Main Lagi', cls: 'btn-mint', onClick: () => startGame() }
+        ]
+      });
+    }
+  }, 3200);
+}
+
+function openRoundSummaryModal(summary) {
+  showModal({
+    icon: '🎯',
+    title: 'Ronde Selesai!',
+    desc: `${summary.reason}\nKata rahasianya adalah: ${summary.word}`,
+    buttons: []
+  });
+}
+
+function pushChatSystem(txt) {
+  pushChatToAll({ kind: 'system', text: txt });
+}
+
+function pushChatToAll(msgObj) {
+  broadcast({ type: 'CHAT_EVENT', msg: msgObj });
+  appendChatMessage(msgObj);
+}
+
+function appendChatMessage(msgObj) {
+  const box = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg ' + (msgObj.kind || 'normal');
+  div.innerHTML = msgObj.text;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+/* ================= ANIMASI SELEBRASI TEBAKAN BENAR ================= */
+function triggerCorrectCelebration(guesserName, pts) {
+  playSound('correct');
+  showToast(`🎉 ${guesserName} menebak benar! +${pts}`);
+
+  const fx = document.getElementById('canvasFxOverlay');
+  const badge = document.createElement('div');
+  badge.className = 'celebrate-burst';
+  badge.textContent = `✨ ${guesserName} BENAR! +${pts}`;
+  fx.appendChild(badge);
+
+  const emojis = ['🎉', '⭐', '🔥', '🎨', '✨'];
+  for (let i = 0; i < 14; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti-piece';
+    c.textContent = emojis[i % emojis.length];
+    c.style.left = (Math.random() * 90 + 5) + '%';
+    c.style.animationDelay = (Math.random() * 0.35) + 's';
+    fx.appendChild(c);
+    setTimeout(() => c.remove(), 1850);
+  }
+
+  setTimeout(() => badge.remove(), 1450);
+}
+
+/* ================= USER INPUT HANDLERS ================= */
+function requestClearCanvas() {
+  if (!amIDrawingNow()) return;
+  clearCanvasLocal();
+  playSound('pop');
+  sendToHost({ type: 'CLEAR_CANVAS' });
+}
+
+function submitGuessOrChat(e) {
+  e.preventDefault();
+  const inp = document.getElementById('chatInput');
+  const val = inp.value.trim();
+  if (!val) return;
+  inp.value = '';
+  sendToHost({ type: 'CHAT_GUESS', text: val });
+}
+
+/* ================= RENDER GAME UI ================= */
+function renderGameUI(state) {
+  const drawer = state.players[state.drawerIndex];
+  const iAmDrawer = drawer && drawer.id === myId;
+
+  document.getElementById('roundBadge').textContent = `Ronde ${state.round}/${state.maxRounds}`;
+  document.getElementById('playerNumLabel').textContent = `${state.players.length}/8`;
+
+  const timerPill = document.getElementById('timerPill');
+  timerPill.textContent = `${state.timeLeft}s`;
+  timerPill.classList.toggle('urgent', state.phase === 'drawing' && state.timeLeft <= 10);
+
+  const subLabel = document.getElementById('wordSubLabel');
+  const clueEl = document.getElementById('wordClueText');
+
+  if (state.phase === 'choosing') {
+    subLabel.textContent = drawer ? `GILIRAN ${drawer.name.toUpperCase()} PILIH KATA` : 'MEMILIH KATA';
+    clueEl.textContent = '• • •';
+  } else if (iAmDrawer && secretWordForDrawer) {
+    subLabel.textContent = 'GAMBAR KATA INI';
+    clueEl.textContent = secretWordForDrawer;
+  } else {
+    subLabel.textContent = `TEBAK KATA (${state.secretWordLength || (state.clueText ? state.clueText.replace(/\s+/g, '').length : 0)} HURUF)`;
+    clueEl.textContent = state.clueText || '_ _ _ _';
+  }
+
+  // Toolbar aktif hanya untuk penggambar di fase menggambar
+  const toolbar = document.getElementById('drawerToolbar');
+  toolbar.style.opacity = iAmDrawer && state.phase === 'drawing' ? '1' : '0.45';
+  toolbar.style.pointerEvents = iAmDrawer && state.phase === 'drawing' ? 'auto' : 'none';
+  canvas.style.cursor = iAmDrawer && state.phase === 'drawing' ? 'crosshair' : 'default';
+
+  // Input chat: penggambar tidak menebak kata sendiri
+  const chatInput = document.getElementById('chatInput');
+  if (iAmDrawer && state.phase === 'drawing') {
+    chatInput.placeholder = 'Kamu sedang menggambar...';
+    chatInput.disabled = true;
+  } else {
+    chatInput.placeholder = 'Ketik tebakanmu di sini...';
+    chatInput.disabled = false;
+  }
+
+  // Scoreboard
+  const sortedPlayers = [...state.players].sort((a, b) => b.score - a.score);
+  document.getElementById('scoreList').innerHTML = sortedPlayers.map(p => {
+    const isDrw = drawer && drawer.id === p.id;
+    const cls = isDrw ? 'drawer' : (p.guessedThisRound ? 'guessed' : '');
+    const statusTag = isDrw ? '✏️' : (p.guessedThisRound ? '✅' : '');
+    return `
+      <div class="score-item ${cls}">
+        <span>${p.avatar} <strong>${p.name}</strong> ${p.id === myId ? '(Kamu)' : ''} ${statusTag}</span>
+        <span class="score-pts">${p.score}</span>
+      </div>
+    `;
+  }).join('');
+}
+</script>
+</body>
+</html>
