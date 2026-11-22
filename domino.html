@@ -44,6 +44,7 @@ input,select{background:#00000030;border:1px solid #ffffff30;color:var(--ivory);
 .fl{position:absolute;bottom:90px;font-size:34px;animation:fl 2s ease-out forwards;pointer-events:none;z-index:7}
 @keyframes fl{to{transform:translateY(-55vh) rotate(20deg) scale(1.6);opacity:0}}
 #ov{position:absolute;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:10;flex-direction:column;gap:12px;text-align:center;padding:20px}#ov.on{display:flex}
+.suit-btns{display:flex;gap:12px;margin-top:6px}.suit-btn{font-size:36px;width:76px;height:76px;border-radius:20px;border:2px solid var(--brass);background:#ffffff18;color:var(--ivory);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;transition:.12s}.suit-btn small{font-size:11px;font-weight:700}.suit-btn:active{transform:scale(.93);background:var(--brass);color:var(--ink)}
 .shuf{position:relative;width:140px;height:90px}.shuf .t{position:absolute;left:50px;top:20px;--h:26px;animation:sh .5s ease-in-out infinite alternate}
 @keyframes sh{from{transform:translate(-50px,0) rotate(-25deg)}to{transform:translate(50px,-10px) rotate(25deg)}}
 .hint{opacity:.7;font-size:13px}.shake{animation:sk .3s}@keyframes sk{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
@@ -73,7 +74,8 @@ input,select{background:#00000030;border:1px solid #ffffff30;color:var(--ivory);
 const $=s=>document.querySelector(s),R=a=>a[Math.random()*a.length|0],EM=['😎','🤠','🦊','🐸','🐼','👻','🤡','🐙','🦄','🐯'];
 const PIP=[[],[4],[0,8],[0,4,8],[0,2,6,8],[0,2,4,6,8],[0,2,3,5,6,8],[0,2,3,4,5,6,8],[0,1,2,3,5,6,7,8],[0,1,2,3,4,5,6,7,8]];
 const QK=['Gaple sakti! 😎','Kartuku jelek amat 😭','Jangan dikunci dong 🙏','Awas, kubalas nanti 😈','Kok lewat terus? 🤣','Ampun bang 🥲','Cepetan dong, keburu basi ⏳','Hoki doang itu 🤡'],RX=['😂','🔥','😭','😈','🤡','👏','🥶','💀'];
-let S,me,host=false,peer,conns={},hc,code,lastSeq=-1,sel=null,name,emo=R(EM),fly=null,ac,mute=false,dealing=false,dealTimer=null;
+const SUIT={rock:'✊',paper:'🖐️',scissors:'✌️'};
+let S,me,host=false,peer,conns={},hc,code,lastSeq=-1,sel=null,name,emo=R(EM),fly=null,ac,mute=false,suitChoice=null;
 
 /* ---- suara ---- */
 function tn(f,d,ty='sine',v=.15,t=0,sl){try{ac=ac||new AudioContext();if(ac.state==='suspended')ac.resume();const o=ac.createOscillator(),g=ac.createGain(),n=ac.currentTime+t;o.type=ty;o.frequency.setValueAtTime(f,n);if(sl)o.frequency.exponentialRampToValueAtTime(sl,n+d);g.gain.setValueAtTime(v,n);g.gain.exponentialRampToValueAtTime(.001,n+d);o.connect(g).connect(ac.destination);o.start(n);o.stop(n+d)}catch(e){}}
@@ -148,46 +150,104 @@ function hrecv(c,m){
 }
 
 function view(pid){
-  return{...S,yn:(S.yard||[]).length,yard:undefined,players:S.players.map(p=>({id:p.id,name:p.name,emo:p.emo,score:p.score,off:p.off,n:(p.hand||[]).length,hand:p.id==pid||(S.res)?p.hand:undefined}))};
+  return{...S,yn:(S.yard||[]).length,yard:undefined,suit:undefined,players:S.players.map(p=>({id:p.id,name:p.name,emo:p.emo,score:p.score,off:p.off,n:(p.hand||[]).length,hand:p.id==pid||(S.res)?p.hand:undefined}))};
 }
 function bc(){for(const id in conns)if(conns[id].open)conns[id].send({t:'s',s:view(id)});onState(view('H'))}
 function send(m){host?act('H',m):hc.send(m)}
 
-/* ---- aturan domino (host) ---- */
+/* ---- aturan domino & pembuka (host) ---- */
 const sh=a=>{for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
 const sides=t=>{const c=S.chain;if(!c.length)return['R'];const L=c[0][0],Rr=c.at(-1)[1],r=[];if(t.includes(L))r.push('L');if(t.includes(Rr))r.push('R');return r};
 const can=h=>h.some(t=>sides(t).length);
 const em=(k,o={})=>{S.seq++;S.ev={k,...o}};
 
+function bestTileForPlayer(p){
+  let best=-1,bt=(p.hand||[])[0];
+  (p.hand||[]).forEach(x=>{
+    const s=(x[0]==x[1]?1000:0)+x[0]+x[1];
+    if(s>best){best=s;bt=x}
+  });
+  return bt;
+}
+
 function deal(){
-  if(dealTimer){clearTimeout(dealTimer);dealTimer=null}
   const n=S.players.length,mx=n>4?9:6,t=[];
   for(let a=0;a<=mx;a++)for(let b=a;b<=mx;b++)t.push([a,b]);
   sh(t);
   const k=n>6?6:7;
-  S.players.forEach(p=>p.hand=t.splice(0,k));
+  S.players.forEach(p=>{p.hand=t.splice(0,k);p.off=false});
   S.yard=S.mode=='draw'?t:[];
   S.chain=[];S.passes=0;S.res=null;
-  let best=-1,bi=0,bt;
-  S.players.forEach((p,i)=>p.hand.forEach(x=>{
-    const s=(x[0]==x[1]?1000:0)+x[0]+x[1];
-    if(s>best){best=s;bi=i;bt=x}
-  }));
-  S.phase='play';
-  S.turn=bi;
-  em('deal',{pi:bi});
-  bc();
-  // Turunkan kartu tertinggi setelah animasi kocok (1.5 detik) dan langsung lanjut ke giliran berikutnya
-  dealTimer=setTimeout(()=>{
-    dealTimer=null;
-    if(S.phase==='play'&&S.chain.length===0&&bt){
-      play(bi,bt,'R');
+
+  if(n===2){
+    // 2 pemain: Suit Batu Gunting Kertas dulu; pemenang langsung menurunkan kartu pertama
+    S.phase='suit';
+    S.suit={picks:{},winner:null,draw:false};
+    suitChoice=null;
+    em('suit',{pi:0});
+    bc();
+  }else{
+    // >2 pemain: kocok sebentar, lalu pemegang kartu tertinggi langsung menurunkan kartu pertama ke meja
+    let best=-1,bi=0,bt;
+    S.players.forEach((p,i)=>p.hand.forEach(x=>{
+      const s=(x[0]==x[1]?1000:0)+x[0]+x[1];
+      if(s>best){best=s;bi=i;bt=x}
+    }));
+    S.phase='play';
+    S.turn=bi;
+    em('deal',{pi:bi});
+    bc();
+    setTimeout(()=>{
+      if(S.phase==='play'&&S.chain.length===0&&bt){
+        play(bi,bt,'R');
+      }
+    },1100);
+  }
+}
+
+function suitWin(a,b){
+  if(a===b)return 0;
+  if((a==='rock'&&b==='scissors')||(a==='scissors'&&b==='paper')||(a==='paper'&&b==='rock'))return 1;
+  return 2;
+}
+
+function handleSuit(pid,choice){
+  if(!S||S.phase!=='suit')return;
+  if(!['rock','paper','scissors'].includes(choice))return;
+  S.suit.picks[pid]=choice;
+  const p0=S.players[0].id, p1=S.players[1].id;
+  const c0=S.suit.picks[p0], c1=S.suit.picks[p1];
+  if(c0 && c1){
+    const res=suitWin(c0,c1);
+    if(res===0){
+      // Seri -> suit ulang
+      S.suit={picks:{},winner:null,draw:true};
+      em('suit_draw',{pi:0});
+      bc();
+    }else{
+      const winIdx=res===1?0:1;
+      const starterTile=bestTileForPlayer(S.players[winIdx]);
+      S.suit.winner=winIdx;
+      S.phase='play';
+      S.turn=winIdx;
+      em('suit_win',{pi:winIdx,c0,c1});
+      bc();
+      // Begitu menang, kartu pertama pemenang langsung muncul di meja!
+      setTimeout(()=>{
+        if(S.phase==='play'&&S.chain.length===0&&starterTile){
+          play(winIdx,starterTile,'R');
+        }
+      },950);
     }
-  },1500);
+  }else{
+    em('suit_wait',{pi:S.players.findIndex(p=>p.id===pid)});
+    bc();
+  }
 }
 
 function act(pid,m){
   if(m.t=='chat')return chatAll(pid,m.m);
+  if(m.t=='suit')return handleSuit(pid,m.choice);
   const i=S.players.findIndex(p=>p.id==pid);
   if(S.phase!='play'||i!=S.turn)return;
   if(m.t=='play')play(i,m.tile,m.side);
@@ -268,24 +328,66 @@ function onState(s){
   if(s.phase=='lobby'){lastSeq=s.seq;return drawLobby()}
   if(!document.getElementById('game').classList.contains('on'))show('game');
   if(ev&&s.seq!=lastSeq){lastSeq=s.seq;fx(ev)}
+  if(s.phase==='suit')renderSuit();
   render();
+}
+
+function renderSuit(){
+  const p0=S.players[0],p1=S.players[1];
+  const opp=p0.id===me?p1:p0;
+  const picked=!!suitChoice;
+  ov(`
+    <h2>✊✌️🖐️ Suit Penentu!</h2>
+    <div class="hint">Menang suit = kartu pertamamu langsung turun!</div>
+    <div class="card" style="width:100%">
+      <div class="pl"><span>${emo}</span><b>${esc(name)} (Kamu)</b><span>${picked?SUIT[suitChoice]:'⏳'}</span></div>
+      <div class="pl"><span>${opp.emo}</span><b>${esc(opp.name)}</b><span>${picked?'Siap / Menunggu…':'🤔'}</span></div>
+    </div>
+    <div class="suit-btns">
+      <button class="suit-btn" data-c="rock" ${picked?'disabled':''}>✊<small>Batu</small></button>
+      <button class="suit-btn" data-c="paper" ${picked?'disabled':''}>🖐️<small>Kertas</small></button>
+      <button class="suit-btn" data-c="scissors" ${picked?'disabled':''}>✌️<small>Gunting</small></button>
+    </div>
+    <div class="hint">${picked?'Menunggu pilihan lawan…':'Pilih salah satu di atas'}</div>
+  `);
+  $('#ov').querySelectorAll('.suit-btn').forEach(btn=>{
+    btn.onclick=()=>{
+      if(suitChoice)return;
+      suitChoice=btn.dataset.c;
+      snd('chat');
+      send({t:'suit',choice:suitChoice});
+      renderSuit();
+    };
+  });
 }
 
 function fx(ev){
   const p=S.players[ev.pi],nm=p?`${p.emo} <b>${esc(p.name)}</b>`:'';
-  ov(0);
-  if(ev.k=='deal'){
-    dealing=true;
+  if(ev.k=='suit'){
+    suitChoice=null;
     snd('shuf');
-    ov(`<div class="shuf">${[0,1,2,3,4,5].map(i=>`<div class="t back" style="animation-delay:${i*.08}s"><i></i><i></i></div>`).join('')}</div><h2>Mengocok kartu… 🎲</h2><div class="hint">Kartu tertinggi turun duluan</div>`);
-    setTimeout(()=>{
-      dealing=false;
-      ov(0);
-      render();
-    },1450);
+    renderSuit();
+  }
+  else if(ev.k=='suit_draw'){
+    suitChoice=null;
+    snd('no');
+    toast('Seri! Suit ulang ya 🤝');
+    renderSuit();
+  }
+  else if(ev.k=='suit_win'){
+    suitChoice=null;
+    ov(0);
+    snd('win');
+    toast(`${nm} menang suit! Kartu pertama turun 🎉`);
+  }
+  else if(ev.k=='deal'){
+    ov(0);
+    snd('shuf');
+    ov(`<div class="shuf">${[0,1,2,3,4,5].map(i=>`<div class="t back" style="animation-delay:${i*.08}s"><i></i><i></i></div>`).join('')}</div><h2>Mengocok kartu… 🎲</h2><div class="hint">Kartu pembuka langsung turun ke meja</div>`);
+    setTimeout(()=>{if(S&&S.phase==='play')ov(0)},1050);
   }
   else if(ev.k=='play'){
-    dealing=false;ov(0);
+    ov(0);
     snd('play');
     toast(`${nm} ${R(['jreng! 💥','taruh kartu ala sultan 👑','gas pol! 🚀','sikat bleh 😏'])}`+(ev.dbl?' · BALAK! 🔥':''));
     fly={pi:ev.pi,tile:ev.tile};
@@ -298,8 +400,8 @@ function fx(ev){
     if(w>=0&&S.players[w].id==me)'🎉🏆🥳✨'.match(/./gu).forEach(float);
     setTimeout(()=>ov(1),900);
   }
-  if(ev.k!='deal'&&S.players[S.turn]&&S.players[S.turn].id==me&&S.phase=='play'&&ev.k!='end'){
-    setTimeout(()=>{snd('turn');toast('Giliranmu! 👉')},250);
+  if(ev.k!='suit'&&ev.k!='suit_draw'&&S.players[S.turn]&&S.players[S.turn].id==me&&S.phase=='play'&&ev.k!='end'){
+    setTimeout(()=>{snd('turn');toast('Giliranmu! 👉')},200);
   }
 }
 
@@ -329,7 +431,7 @@ function render(){
   if(mi<0)return;
   $('#top').innerHTML=S.players.map((p,i)=>`<div class="chip ${i==S.turn&&S.phase=='play'?'on':''} ${p.off?'off':''}" data-p="${i}"><em>${p.emo}</em>${esc(p.name)}<br>🁢 ${p.n} · ⭐ ${p.score}</div>`).join('')+(S.mode=='draw'?`<div class="chip" id="yd"><em>🃏</em>Tumpukan<br>${S.yn}</div>`:'');
   board();hand();
-  const my=S.players[S.turn]&&S.players[S.turn].id==me&&S.phase=='play'&&!dealing;
+  const my=S.players[S.turn]&&S.players[S.turn].id==me&&S.phase=='play';
   const h=S.players[mi].hand||[],cp=can(h),chain=S.chain.length>0;
   $('#dr').disabled=!(my&&S.mode=='draw'&&S.yn&&!cp&&chain);
   $('#ps').disabled=!(my&&!cp&&chain&&!(S.mode=='draw'&&S.yn));
@@ -373,7 +475,7 @@ function board(){
 let dealt=-1;
 function hand(){
   const mi=S.players.findIndex(p=>p.id==me),h=S.players[mi].hand||[];
-  const my=S.players[S.turn]&&S.players[S.turn].id==me&&S.phase=='play'&&!dealing;
+  const my=S.players[S.turn]&&S.players[S.turn].id==me&&S.phase=='play';
   const el=$('#hand');
   el.innerHTML=h.map((t,i)=>{
     const ok=my&&sides(t).length;
@@ -383,7 +485,7 @@ function hand(){
   }).join('');
   if(S.ev&&S.ev.k=='deal'&&dealt!=S.seq){
     dealt=S.seq;
-    el.querySelectorAll('.t').forEach((t,i)=>t.animate([{transform:'translateY(-70vh) scale(.3) rotate(200deg)',opacity:0},{transform:'none',opacity:1}],{duration:500,delay:1450+i*60,fill:'backwards',easing:'cubic-bezier(.2,.9,.3,1.2)'}));
+    el.querySelectorAll('.t').forEach((t,i)=>t.animate([{transform:'translateY(-70vh) scale(.3) rotate(200deg)',opacity:0},{transform:'none',opacity:1}],{duration:500,delay:200+i*50,fill:'backwards',easing:'cubic-bezier(.2,.9,.3,1.2)'}));
   }else if(fly&&fly.draw){
     const l=el.lastElementChild,y=$('#yd');
     if(l&&y){
@@ -396,17 +498,15 @@ function hand(){
 
 $('#hand').onclick=e=>{
   const sp=e.target.closest('span[data-idx]');
-  if(!sp||!S)return;
+  if(!sp||!S||S.phase!=='play')return;
   const mi=S.players.findIndex(p=>p.id==me);
   const t=(S.players[mi].hand||[])[+sp.dataset.idx];
   if(t)pick(t,sp.firstElementChild);
 };
 
 function pick(t,el){
-  if(dealing)return;
   const my=S.players[S.turn]&&S.players[S.turn].id==me&&S.phase=='play';
   if(!my){snd('no');toast('Sabar, bukan giliranmu 😤');return}
-  if(!S.chain.length){toast('Kartu pembuka sedang turun… ⏳');return}
   const s=sides(t);
   if(!s.length){
     snd('no');
@@ -414,7 +514,7 @@ function pick(t,el){
     toast(R(['Kartu itu nggak cocok 🙅','Ngawur ah 🤨','Coba lihat ujungnya 👀']));
     return;
   }
-  if(s.length==1||S.chain[0][0]==S.chain.at(-1)[1])return go(t,s[s.length-1],el);
+  if(!S.chain.length||s.length==1||S.chain[0][0]==S.chain.at(-1)[1])return go(t,s[s.length-1],el);
   sel=t;render();
 }
 
