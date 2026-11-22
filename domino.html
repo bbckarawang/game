@@ -73,7 +73,7 @@ input,select{background:#00000030;border:1px solid #ffffff30;color:var(--ivory);
 const $=s=>document.querySelector(s),R=a=>a[Math.random()*a.length|0],EM=['😎','🤠','🦊','🐸','🐼','👻','🤡','🐙','🦄','🐯'];
 const PIP=[[],[4],[0,8],[0,4,8],[0,2,6,8],[0,2,4,6,8],[0,2,3,5,6,8],[0,2,3,4,5,6,8],[0,1,2,3,5,6,7,8],[0,1,2,3,4,5,6,7,8]];
 const QK=['Gaple sakti! 😎','Kartuku jelek amat 😭','Jangan dikunci dong 🙏','Awas, kubalas nanti 😈','Kok lewat terus? 🤣','Ampun bang 🥲','Cepetan dong, keburu basi ⏳','Hoki doang itu 🤡'],RX=['😂','🔥','😭','😈','🤡','👏','🥶','💀'];
-let S,me,host=false,peer,conns={},hc,code,lastSeq=-1,sel=null,name,emo=R(EM),fly=null,ac,mute=false,dealing=false;
+let S,me,host=false,peer,conns={},hc,code,lastSeq=-1,sel=null,name,emo=R(EM),fly=null,ac,mute=false,dealing=false,dealTimer=null;
 
 /* ---- suara ---- */
 function tn(f,d,ty='sine',v=.15,t=0,sl){try{ac=ac||new AudioContext();if(ac.state==='suspended')ac.resume();const o=ac.createOscillator(),g=ac.createGain(),n=ac.currentTime+t;o.type=ty;o.frequency.setValueAtTime(f,n);if(sl)o.frequency.exponentialRampToValueAtTime(sl,n+d);g.gain.setValueAtTime(v,n);g.gain.exponentialRampToValueAtTime(.001,n+d);o.connect(g).connect(ac.destination);o.start(n);o.stop(n+d)}catch(e){}}
@@ -160,6 +160,7 @@ const can=h=>h.some(t=>sides(t).length);
 const em=(k,o={})=>{S.seq++;S.ev={k,...o}};
 
 function deal(){
+  if(dealTimer){clearTimeout(dealTimer);dealTimer=null}
   const n=S.players.length,mx=n>4?9:6,t=[];
   for(let a=0;a<=mx;a++)for(let b=a;b<=mx;b++)t.push([a,b]);
   sh(t);
@@ -172,14 +173,17 @@ function deal(){
     const s=(x[0]==x[1]?1000:0)+x[0]+x[1];
     if(s>best){best=s;bi=i;bt=x}
   }));
-  S.phase='play';S.turn=bi;
-  em('deal',{pi:bi});bc();
-  // Setelah animasi kocok selesai (2.2 detik), kartu pembuka otomatis turun dan giliran langsung berlanjut
-  setTimeout(()=>{
-    if(S.phase==='play'&&S.chain.length===0){
+  S.phase='play';
+  S.turn=bi;
+  em('deal',{pi:bi});
+  bc();
+  // Turunkan kartu tertinggi setelah animasi kocok (1.5 detik) dan langsung lanjut ke giliran berikutnya
+  dealTimer=setTimeout(()=>{
+    dealTimer=null;
+    if(S.phase==='play'&&S.chain.length===0&&bt){
       play(bi,bt,'R');
     }
-  },2200);
+  },1500);
 }
 
 function act(pid,m){
@@ -273,12 +277,12 @@ function fx(ev){
   if(ev.k=='deal'){
     dealing=true;
     snd('shuf');
-    ov(`<div class="shuf">${[0,1,2,3,4,5].map(i=>`<div class="t back" style="animation-delay:${i*.08}s"><i></i><i></i></div>`).join('')}</div><h2>Mengocok kartu… 🎲</h2><div class="hint">Kartu tertinggi otomatis turun duluan</div>`);
+    ov(`<div class="shuf">${[0,1,2,3,4,5].map(i=>`<div class="t back" style="animation-delay:${i*.08}s"><i></i><i></i></div>`).join('')}</div><h2>Mengocok kartu… 🎲</h2><div class="hint">Kartu tertinggi turun duluan</div>`);
     setTimeout(()=>{
       dealing=false;
       ov(0);
       render();
-    },2100);
+    },1450);
   }
   else if(ev.k=='play'){
     dealing=false;ov(0);
@@ -295,7 +299,7 @@ function fx(ev){
     setTimeout(()=>ov(1),900);
   }
   if(ev.k!='deal'&&S.players[S.turn]&&S.players[S.turn].id==me&&S.phase=='play'&&ev.k!='end'){
-    setTimeout(()=>{snd('turn');toast('Giliranmu! 👉')},350);
+    setTimeout(()=>{snd('turn');toast('Giliranmu! 👉')},250);
   }
 }
 
@@ -335,7 +339,7 @@ function render(){
     const t=sel,s=sides(t);
     b.innerHTML=s.map(x=>`<button class="btn" data-s="${x}">${x=='L'?'◀ Kiri ('+S.chain[0][0]+')':'Kanan ('+S.chain.at(-1)[1]+') ▶'}</button>`).join('');
   }else{
-    b.innerHTML=S.phase!='play'?'':my?(chain?(cp?'<span>Pilih kartu yang menyala ✨</span>':'<span>Tidak ada kartu cocok 😬</span>'):'<span>Kartu pembuka turun otomatis…</span>'):`<span class="hint">Giliran ${S.players[S.turn].emo} ${esc(S.players[S.turn].name)}…</span>`;
+    b.innerHTML=S.phase!='play'?'':my?(chain?(cp?'<span>Pilih kartu yang menyala ✨</span>':'<span>Tidak ada kartu cocok 😬</span>'):'<span>Giliranmu mulai! Pilih kartu ✨</span>'):`<span class="hint">Giliran ${S.players[S.turn].emo} ${esc(S.players[S.turn].name)}…</span>`;
   }
 }
 
@@ -379,7 +383,7 @@ function hand(){
   }).join('');
   if(S.ev&&S.ev.k=='deal'&&dealt!=S.seq){
     dealt=S.seq;
-    el.querySelectorAll('.t').forEach((t,i)=>t.animate([{transform:'translateY(-70vh) scale(.3) rotate(200deg)',opacity:0},{transform:'none',opacity:1}],{duration:600,delay:2000+i*80,fill:'backwards',easing:'cubic-bezier(.2,.9,.3,1.2)'}));
+    el.querySelectorAll('.t').forEach((t,i)=>t.animate([{transform:'translateY(-70vh) scale(.3) rotate(200deg)',opacity:0},{transform:'none',opacity:1}],{duration:500,delay:1450+i*60,fill:'backwards',easing:'cubic-bezier(.2,.9,.3,1.2)'}));
   }else if(fly&&fly.draw){
     const l=el.lastElementChild,y=$('#yd');
     if(l&&y){
@@ -390,7 +394,6 @@ function hand(){
   }
 }
 
-// Event delegation agar klik pada kartu tidak pernah hilang saat render ulang
 $('#hand').onclick=e=>{
   const sp=e.target.closest('span[data-idx]');
   if(!sp||!S)return;
@@ -403,7 +406,7 @@ function pick(t,el){
   if(dealing)return;
   const my=S.players[S.turn]&&S.players[S.turn].id==me&&S.phase=='play';
   if(!my){snd('no');toast('Sabar, bukan giliranmu 😤');return}
-  if(!S.chain.length){toast('Tunggu kartu pertama turun ya… ⏳');return}
+  if(!S.chain.length){toast('Kartu pembuka sedang turun… ⏳');return}
   const s=sides(t);
   if(!s.length){
     snd('no');
