@@ -167,7 +167,6 @@
     justify-content: center;
     gap: 7px;
   }
-  .btn:hover:not(:disabled) { filter: brightness(1.06); }
   .btn:active:not(:disabled) {
     transform: translateY(3px);
     box-shadow: 0 1px 0 rgba(0,0,0,0.38);
@@ -671,7 +670,7 @@
   .tile::after { content: attr(data-deco); position: absolute; right: 3px; bottom: 0; font-size: clamp(10px, 2.4vw, 19px); opacity: 0.3; pointer-events: none; }
   .board-inner.picking { box-shadow: inset 0 0 0 3px rgba(199,125,255,0.7); }
   .board-inner.picking .tile { cursor: pointer; }
-  .board-inner.picking .tile:hover { outline: 2px solid #c77dff; outline-offset: -2px; z-index: 2; }
+  .board-inner.picking .tile:active { outline: 2px solid #c77dff; outline-offset: -2px; z-index: 2; }
   .tile.pick-from { outline: 3px solid #c77dff; outline-offset: -3px; background-image: linear-gradient(rgba(199,125,255,0.45), rgba(199,125,255,0.45)); }
   .pick-bar { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 650; display: none; align-items: center; gap: 10px; background: rgba(15,20,36,0.96); border: 1.5px solid #c77dff; border-radius: 999px; padding: 8px 10px 8px 18px; font-size: 14px; font-weight: 600; box-shadow: 0 14px 30px rgba(0,0,0,0.55); max-width: 94vw; }
   .pick-bar.show { display: flex; }
@@ -691,7 +690,7 @@
   .hand { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
   .hand-empty { grid-column: 1 / -1; font-size: 12px; opacity: 0.7; text-align: center; padding: 6px 4px; line-height: 1.4; }
   .pcard { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: 14px; border: 1.5px solid rgba(255,255,255,0.18); background: linear-gradient(160deg, rgba(255,209,102,0.22), rgba(199,125,255,0.2)); color: #fff; cursor: pointer; text-align: center; transition: transform 0.15s, opacity 0.2s; }
-  .pcard:not(:disabled):hover { transform: translateY(-3px); border-color: var(--gold); }
+  .pcard:not(:disabled):active { transform: scale(0.95); border-color: var(--gold); }
   .pcard:disabled { opacity: 0.45; cursor: not-allowed; }
   .pc-ico { font-size: 24px; } .pc-name { font-size: 11px; font-weight: 700; line-height: 1.1; } .pc-desc { font-size: 9.5px; opacity: 0.8; line-height: 1.15; }
   .chip-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
@@ -758,6 +757,43 @@
   .confetti { position: fixed; top: -40px; z-index: 760; pointer-events: none; animation: confFall linear forwards; }
   @keyframes confFall { to { transform: translateY(110vh) rotate(540deg); } }
   .pick-bar { bottom: calc(14px + env(safe-area-inset-bottom)); }
+
+  /* ===== KUNCI MOBILE (tidak ada tampilan desktop) ===== */
+  html { background: #05070f; }
+  body { width: 100%; max-width: 480px; margin: 0 auto; box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 0 60px rgba(0,0,0,0.6); }
+  .screen, .glass-panel { max-width: none; }
+  * { scrollbar-width: none; }
+  *::-webkit-scrollbar { display: none; }
+  .brand-header h1 { font-size: 30px; }
+  .board-frame { container-type: inline-size; max-width: 100%; }
+  .tile { font-size: max(9px, 2.7cqw); }
+  .tile::after { font-size: max(10px, 4.6cqw); }
+  .player-token { width: max(24px, 7.6cqw); height: max(24px, 7.6cqw); font-size: max(12px, 3.8cqw); }
+  .bubble-in { font-size: max(11px, 3.4cqw); }
+
+  /* ===== CHAT ALA MESSENGER HP ===== */
+  .tab-btn .dot { top: 3px; right: 6px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; font-size: 11px; font-style: normal; font-weight: 700; line-height: 18px; text-align: center; color: #fff; }
+  .tab-btn .dot.show { display: block; }
+  .sheet-dim { position: fixed; inset: 0; background: rgba(5,8,18,0.4); z-index: 600; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
+  .sheet-dim.show { opacity: 1; pointer-events: auto; }
+  .chat-sheet { position: fixed; left: 50%; bottom: 0; width: min(100vw, 480px); height: min(58dvh, 480px); transform: translate(-50%, 105%); transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1); z-index: 610; background: rgba(20,26,46,0.98); border: 1px solid var(--border); border-bottom: 0; border-radius: 24px 24px 0 0; display: flex; flex-direction: column; gap: 8px; padding: 6px 12px calc(10px + env(safe-area-inset-bottom)); box-shadow: 0 -14px 40px rgba(0,0,0,0.55); }
+  .chat-sheet.open { transform: translate(-50%, 0); }
+  .cs-grab { width: 44px; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.3); margin: 2px auto 0; flex-shrink: 0; }
+  .cs-head { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 16px; flex-shrink: 0; touch-action: none; }
+  .cs-close { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: rgba(255,255,255,0.1); color: #fff; font-size: 16px; }
+  .cs-log { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 4px 2px; overscroll-behavior: contain; }
+  .cs-log:empty::before { content: 'Belum ada obrolan. Kirim kata lucu duluan! 😜'; margin: auto; text-align: center; opacity: 0.6; font-size: 14px; line-height: 1.5; max-width: 220px; }
+  .msg { display: flex; gap: 7px; align-items: flex-end; max-width: 88%; }
+  .msg.mine { align-self: flex-end; flex-direction: row-reverse; }
+  .msg .av { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 2px solid #fff; flex-shrink: 0; }
+  .msg .bub { background: rgba(255,255,255,0.13); border-radius: 16px 16px 16px 4px; padding: 7px 12px; font-size: 15px; line-height: 1.3; word-break: break-word; }
+  .msg.mine .bub { background: linear-gradient(135deg, #4cc9f0, #2563eb); border-radius: 16px 16px 4px 16px; }
+  .msg .nm { display: block; font-size: 11px; opacity: 0.7; margin-bottom: 1px; }
+  .chat-sheet .emoji-dock { flex-shrink: 0; }
+  .chat-sheet .chip-row { flex-shrink: 0; }
+  .cs-input { display: flex; gap: 8px; flex-shrink: 0; }
+  .cs-input input { border-radius: 999px; padding: 12px 16px; }
+  .cs-input .btn { border-radius: 999px; width: 50px; padding: 0; flex-shrink: 0; font-size: 18px; }
 </style>
 </head>
 <body>
@@ -780,6 +816,25 @@
     <div class="m-title" id="mTitle">Judul</div>
     <div class="m-desc" id="mDesc">Deskripsi</div>
     <div class="m-btns" id="mBtns"></div>
+  </div>
+</div>
+
+<div class="sheet-dim" id="sheetDim" onclick="closeChat()"></div>
+<div class="chat-sheet" id="chatSheet">
+  <div class="cs-grab"></div>
+  <div class="cs-head" id="csHead"><span>💬 Obrolan Meja</span><button class="cs-close" onclick="closeChat()">✕</button></div>
+  <div class="cs-log" id="chatLog"></div>
+  <div class="emoji-dock">
+          <button class="emo-btn" onclick="sendEmo(this.textContent)">😂</button>
+          <button class="emo-btn" onclick="sendEmo(this.textContent)">💀</button>
+          <button class="emo-btn" id="emoSnake" onclick="sendEmo(this.textContent)">🐍</button>
+          <button class="emo-btn" id="emoLadder" onclick="sendEmo(this.textContent)">🪜</button>
+          <button class="emo-btn" onclick="sendEmo(this.textContent)">😈</button>
+        </div>
+  <div class="chip-row" id="chatChips"></div>
+  <div class="cs-input">
+    <input type="text" id="chatInput" maxlength="40" placeholder="Ketik yang kocak..." enterkeyhint="send" onkeydown="if(event.key==='Enter')sendChatInput()">
+    <button class="btn btn-sky" onclick="sendChatInput()">➤</button>
   </div>
 </div>
 
@@ -891,29 +946,13 @@
 
       <div class="tab-bar" id="tabBar">
         <button class="tab-btn active" id="tabCards" data-tab="cards" onclick="setTab('cards')">🃏 Kartu</button>
-        <button class="tab-btn" id="tabChat" data-tab="chat" onclick="setTab('chat')">💬 Chat<i class="dot" id="chatDot"></i></button>
+        <button class="tab-btn" id="tabChat" data-tab="chat" onclick="openChat()">💬 Chat<i class="dot" id="chatDot"></i></button>
         <button class="tab-btn" id="tabPlayers" data-tab="players" onclick="setTab('players')">👥 Pemain</button>
       </div>
 
       <div class="cards-card" id="cardsCard">
         <div class="roster-title"><span>🃏 Kartu Power-Up</span><span style="font-weight:400; opacity:0.6; font-size:11px;">maks 3 • 1 kartu/giliran</span></div>
         <div class="hand" id="cardHand"></div>
-      </div>
-
-      <div class="chat-card">
-        <div class="roster-title"><span>💬 Bubble Chat</span><span style="font-weight:400; opacity:0.6; font-size:11px;">geser untuk kata lucu</span></div>
-        <div class="emoji-dock">
-          <button class="emo-btn" onclick="sendEmo(this.textContent)">😂</button>
-          <button class="emo-btn" onclick="sendEmo(this.textContent)">💀</button>
-          <button class="emo-btn" id="emoSnake" onclick="sendEmo(this.textContent)">🐍</button>
-          <button class="emo-btn" id="emoLadder" onclick="sendEmo(this.textContent)">🪜</button>
-          <button class="emo-btn" onclick="sendEmo(this.textContent)">😈</button>
-        </div>
-        <div class="chip-row" id="chatChips"></div>
-        <div class="row">
-          <input type="text" id="chatInput" maxlength="40" placeholder="Ketik yang kocak..." onkeydown="if(event.key==='Enter')sendChatInput()">
-          <button class="btn btn-sky" style="padding:9px 14px; font-size:13px;" onclick="sendChatInput()">Kirim</button>
-        </div>
       </div>
 
       <div class="roster-card">
@@ -1651,7 +1690,9 @@ function startGame() {
 function enterGameBoard(state) {
   gameState = state;
   applyTheme(state.theme, true);
-  setTab(state.cardsOn ? 'cards' : 'chat');
+  setTab(state.cardsOn ? 'cards' : 'players');
+  closeChat();
+  document.getElementById('chatLog').innerHTML = '';
   acquireWake();
   visualPositions = {};
   state.players.forEach(p => { visualPositions[p.id] = p.pos || 0; });
@@ -1687,19 +1728,72 @@ function setTab(t) {
   activeTab = t;
   document.getElementById('sideColumn').dataset.tab = t;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
-  if (t === 'chat') document.getElementById('chatDot').classList.remove('show');
 }
+let chatOpen = false, unreadChat = 0;
+function openChat() {
+  chatOpen = true; unreadChat = 0;
+  document.getElementById('chatDot').classList.remove('show');
+  document.getElementById('chatSheet').classList.add('open');
+  document.getElementById('sheetDim').classList.add('show');
+  const log = document.getElementById('chatLog');
+  setTimeout(() => { log.scrollTop = log.scrollHeight; }, 60);
+}
+function closeChat() {
+  chatOpen = false;
+  document.getElementById('chatSheet').classList.remove('open');
+  document.getElementById('sheetDim').classList.remove('show');
+  document.getElementById('chatInput').blur();
+}
+function addChatLog(p, text) {
+  const log = document.getElementById('chatLog');
+  const mine = p.id === myId;
+  const row = document.createElement('div');
+  row.className = 'msg' + (mine ? ' mine' : '');
+  const av = document.createElement('div'); av.className = 'av'; av.style.background = p.color; av.textContent = p.avatar;
+  const bub = document.createElement('div'); bub.className = 'bub';
+  if (!mine) { const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = p.name; bub.appendChild(nm); }
+  bub.appendChild(document.createTextNode(text));
+  row.append(av, bub);
+  log.appendChild(row);
+  while (log.children.length > 60) log.firstChild.remove();
+  log.scrollTop = log.scrollHeight;
+  if (!chatOpen && !mine) {
+    unreadChat++;
+    const d = document.getElementById('chatDot');
+    d.textContent = unreadChat > 9 ? '9+' : unreadChat;
+    d.classList.add('show');
+  }
+}
+// sheet ikut naik saat keyboard HP muncul
+if (window.visualViewport) {
+  const adj = () => {
+    const vv = window.visualViewport, sh = document.getElementById('chatSheet');
+    sh.style.bottom = Math.max(0, window.innerHeight - vv.height - vv.offsetTop) + 'px';
+    sh.style.maxHeight = (vv.height - 16) + 'px';
+  };
+  window.visualViewport.addEventListener('resize', adj);
+  window.visualViewport.addEventListener('scroll', adj);
+}
+// geser ke bawah pada header untuk menutup
+(function () {
+  let y0 = null;
+  const h = document.getElementById('csHead');
+  h.addEventListener('touchstart', e => { y0 = e.touches[0].clientY; }, { passive: true });
+  h.addEventListener('touchmove', e => { if (y0 !== null && e.touches[0].clientY - y0 > 50) { y0 = null; closeChat(); } }, { passive: true });
+})();
+
 function shakeBoard() {
   const f = document.querySelector('.board-frame');
   f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake');
 }
 function confetti() {
   const T = THEMES[currentThemeId] || THEMES.default, set = ['🎉', '✨', '🎊', '👑', T.lIcon];
+  const br = document.body.getBoundingClientRect();
   for (let i = 0; i < 36; i++) {
     const s = document.createElement('span');
     s.className = 'confetti';
     s.textContent = pick(set);
-    s.style.left = Math.random() * 100 + 'vw';
+    s.style.left = (br.left + Math.random() * br.width) + 'px';
     s.style.fontSize = (18 + Math.random() * 18) + 'px';
     s.style.animationDuration = (2.2 + Math.random() * 2) + 's';
     s.style.animationDelay = (Math.random() * 0.8) + 's';
@@ -1996,7 +2090,7 @@ function renderCardPanel(state) {
   if (!box) return;
   box.style.display = state.cardsOn ? '' : 'none';
   document.getElementById('tabCards').style.display = state.cardsOn ? '' : 'none';
-  if (!state.cardsOn) { if (activeTab === 'cards') setTab('chat'); return; }
+  if (!state.cardsOn) { if (activeTab === 'cards') setTab('players'); return; }
   const me = state.players.find(p => p.id === myId);
   const active = state.players[state.turnIndex];
   if (state.winner || !active || active.id !== myId) cancelPick();
@@ -2094,6 +2188,7 @@ function showBubble(id, text) {
   const layer = document.getElementById('bubbleLayer');
   const p = gameState.players.find(x => x.id === id);
   if (!layer || !p) return;
+  addChatLog(p, text);
   if (bubbleEls[id]) bubbleEls[id].remove();
   const xy = getTilePercentXY(visualPositions[id] ?? p.pos ?? 0);
   const wrap = document.createElement('div');
@@ -2173,11 +2268,7 @@ async function applyTurnUpdate(newState, animData) {
     return;
   }
 
-  if (animData.kind === 'CHAT') {
-    showBubble(animData.senderId, animData.text);
-    if (activeTab !== 'chat') document.getElementById('chatDot').classList.add('show');
-    return;
-  }
+  if (animData.kind === 'CHAT') { showBubble(animData.senderId, animData.text); return; }
   if (animData.kind === 'CARD') { await runCardAnim(newState, animData); return; }
 
   if (animData.kind === 'DICE_TURN') {
