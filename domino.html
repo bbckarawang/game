@@ -3,7 +3,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <title>Domino Gaple P2P</title>
 <style>
-:root{--felt:#0f3d2e;--felt2:#145240;--ivory:#f6f0df;--brass:#d2a94a;--wine:#8a2433;--ink:#1d1a16;--h:30px}
+:root{--felt:#0f3d2e;--felt2:#145240;--ivory:#f6f0df;--brass:#d2a94a;--wine:#8a2433;--ink:#1d1a16;--h:28px}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
 html,body{margin:0;height:100%;background:#0a2a20;color:var(--ivory);font-family:Georgia,'Palatino Linotype',serif;overflow:hidden}
 button,input,select{font:inherit}
@@ -19,21 +19,29 @@ input,select{background:#00000030;border:1px solid #ffffff30;color:var(--ivory);
 .card{background:#00000028;border:1px solid #ffffff1f;border-radius:16px;padding:12px;flex-shrink:0}
 .pl{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #ffffff14}.pl b{flex:1}
 /* tile */
-.t{display:inline-flex;background:linear-gradient(145deg,#fffdf4,#e9dfc4);border-radius:7px;box-shadow:0 2px 0 #b9ad8c,0 4px 8px #0006;color:var(--ink);flex:none;position:relative}
-.t.v{flex-direction:column}.t i{width:var(--h);height:var(--h);display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);padding:4px;gap:1px}
-.t i+i{border-left:1.5px solid #8a7e5e66}.t.v i+i{border-left:0;border-top:1.5px solid #8a7e5e66}
-.t u{border-radius:50%;background:var(--ink);align-self:center;justify-self:center;width:75%;height:75%}.t u.r{background:var(--wine)}
+.t{display:inline-flex;background:linear-gradient(145deg,#fffdf4,#e9dfc4);border-radius:7px;box-shadow:0 2px 0 #b9ad8c,0 4px 8px #0006;color:var(--ink);flex:none;position:relative;overflow:hidden}
+.t.v{flex-direction:column}
+.t i{width:var(--h);height:var(--h);display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);padding:3px;gap:1px;flex:none}
+.t i+i{border-left:1.5px solid #8a7e5e66}
+.t.v i+i{border-left:0;border-top:1.5px solid #8a7e5e66}
+.t u{border-radius:50%;background:var(--ink);align-self:center;justify-self:center;width:76%;height:76%}
+.t u.r{background:var(--wine)}
 .back{background:repeating-linear-gradient(45deg,#7a1f2b,#7a1f2b 4px,#5e1520 4px,#5e1520 8px)!important}
 /* game */
-#top{display:flex;gap:6px;padding:8px;overflow-x:auto;scrollbar-width:none}
+#top{display:flex;gap:6px;padding:8px;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
 .chip{flex:none;min-width:66px;text-align:center;background:#00000030;border:2px solid transparent;border-radius:14px;padding:5px 8px;font-size:12px;transition:.25s}
 .chip em{font-style:normal;font-size:24px;display:block}.chip.on{border-color:var(--brass);box-shadow:0 0 16px #d2a94a77;transform:translateY(-2px)}.chip.off{opacity:.4}
-#board{flex:1;overflow:auto;padding:10px 6px;display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;min-height:0}
-.row{display:flex;align-items:center;gap:2px;min-height:calc(var(--h)*2)}
-#bar{min-height:44px;display:flex;gap:8px;justify-content:center;align-items:center;padding:4px 10px;font-size:13px}
-#hand{display:flex;gap:6px;padding:14px 10px 6px;overflow-x:auto;min-height:calc(var(--h)*2 + 30px);align-items:flex-end;justify-content:safe center}
-#hand .t{--h:34px;transition:transform .15s,opacity .2s;margin-bottom:2px;cursor:pointer}#hand .t.ok{transform:translateY(-10px);box-shadow:0 0 0 2px var(--brass),0 6px 12px #0008}#hand .t.no{opacity:.45}#hand .t.sel{transform:translateY(-18px) scale(1.08)}
-#dock{display:flex;gap:8px;padding:4px 10px 10px}#dock .btn{flex:1;padding:10px}
+#board{flex:1;overflow:auto;padding:14px 10px;display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center;min-height:0}
+.row{display:flex;align-items:center;gap:3px;min-height:calc(var(--h)*2 + 4px);flex-shrink:0}
+#bar{min-height:44px;display:flex;gap:8px;justify-content:center;align-items:center;padding:4px 10px;font-size:13px;flex-shrink:0}
+#hand{display:flex;gap:7px;padding:18px 12px 10px;overflow-x:auto;min-height:calc(var(--h)*2 + 34px);align-items:flex-end;flex-shrink:0;scrollbar-width:none}
+#hand::-webkit-scrollbar{display:none}
+#hand>span{display:inline-flex;flex:none}
+#hand .t{--h:30px;transition:transform .15s,opacity .2s,box-shadow .15s;cursor:pointer}
+#hand .t.ok{transform:translateY(-10px);box-shadow:0 0 0 2px var(--brass),0 6px 12px #0008}
+#hand .t.no{opacity:.45}
+#hand .t.sel{transform:translateY(-16px) scale(1.06);box-shadow:0 0 0 2px #fff,0 8px 14px #0009}
+#dock{display:flex;gap:8px;padding:4px 10px 10px;flex-shrink:0}#dock .btn{flex:1;padding:10px}
 #toasts{position:absolute;top:calc(env(safe-area-inset-top) + 64px);left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;z-index:9}
 .toast{background:#101010e6;border:1px solid var(--brass);border-radius:20px;padding:8px 16px;font-size:14px;animation:ti .35s cubic-bezier(.2,1.4,.4,1),to .4s 2.3s forwards;max-width:90%;box-shadow:0 6px 18px #0008}
 .toast.c{background:#f6f0dff2;color:var(--ink);border-color:#fff}
@@ -44,7 +52,7 @@ input,select{background:#00000030;border:1px solid #ffffff30;color:var(--ivory);
 .fl{position:absolute;bottom:90px;font-size:34px;animation:fl 2s ease-out forwards;pointer-events:none;z-index:7}
 @keyframes fl{to{transform:translateY(-55vh) rotate(20deg) scale(1.6);opacity:0}}
 #ov{position:absolute;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:10;flex-direction:column;gap:12px;text-align:center;padding:20px}#ov.on{display:flex}
-.suit-btns{display:flex;gap:12px;margin-top:6px}.suit-btn{font-size:36px;width:76px;height:76px;border-radius:20px;border:2px solid var(--brass);background:#ffffff18;color:var(--ivory);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;transition:.12s}.suit-btn small{font-size:11px;font-weight:700}.suit-btn:active{transform:scale(.93);background:var(--brass);color:var(--ink)}
+.suit-btns{display:flex;gap:12px;margin-top:6px}.suit-btn{font-size:34px;width:78px;height:78px;border-radius:20px;border:2px solid var(--brass);background:#ffffff18;color:var(--ivory);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;transition:.12s}.suit-btn small{font-size:11px;font-weight:700}.suit-btn:active,.suit-btn.picked{transform:scale(.95);background:var(--brass);color:var(--ink)}
 .shuf{position:relative;width:140px;height:90px}.shuf .t{position:absolute;left:50px;top:20px;--h:26px;animation:sh .5s ease-in-out infinite alternate}
 @keyframes sh{from{transform:translate(-50px,0) rotate(-25deg)}to{transform:translate(50px,-10px) rotate(25deg)}}
 .hint{opacity:.7;font-size:13px}.shake{animation:sk .3s}@keyframes sk{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
@@ -75,7 +83,7 @@ const $=s=>document.querySelector(s),R=a=>a[Math.random()*a.length|0],EM=['😎'
 const PIP=[[],[4],[0,8],[0,4,8],[0,2,6,8],[0,2,4,6,8],[0,2,3,5,6,8],[0,2,3,4,5,6,8],[0,1,2,3,5,6,7,8],[0,1,2,3,4,5,6,7,8]];
 const QK=['Gaple sakti! 😎','Kartuku jelek amat 😭','Jangan dikunci dong 🙏','Awas, kubalas nanti 😈','Kok lewat terus? 🤣','Ampun bang 🥲','Cepetan dong, keburu basi ⏳','Hoki doang itu 🤡'],RX=['😂','🔥','😭','😈','🤡','👏','🥶','💀'];
 const SUIT={rock:'✊',paper:'🖐️',scissors:'✌️'};
-let S,me,host=false,peer,conns={},hc,code,lastSeq=-1,sel=null,name,emo=R(EM),fly=null,ac,mute=false,suitChoice=null;
+let S,me,host=false,peer,conns={},hc,code,lastSeq=-1,sel=null,name,emo=R(EM),fly=null,ac,mute=false,suitChoice=null,firstPlayTimer=null;
 
 /* ---- suara ---- */
 function tn(f,d,ty='sine',v=.15,t=0,sl){try{ac=ac||new AudioContext();if(ac.state==='suspended')ac.resume();const o=ac.createOscillator(),g=ac.createGain(),n=ac.currentTime+t;o.type=ty;o.frequency.setValueAtTime(f,n);if(sl)o.frequency.exponentialRampToValueAtTime(sl,n+d);g.gain.setValueAtTime(v,n);g.gain.exponentialRampToValueAtTime(.001,n+d);o.connect(g).connect(ac.destination);o.start(n);o.stop(n+d)}catch(e){}}
@@ -149,8 +157,28 @@ function hrecv(c,m){
   }else act(c.peer,m);
 }
 
+function suitStatus(){
+  if(!S.suit)return null;
+  const p0=S.players[0]?.id, p1=S.players[1]?.id;
+  return {
+    p0Done: !!S.suit.picks?.[p0],
+    p1Done: !!S.suit.picks?.[p1],
+    draw: !!S.suit.draw
+  };
+}
+
 function view(pid){
-  return{...S,yn:(S.yard||[]).length,yard:undefined,suit:undefined,players:S.players.map(p=>({id:p.id,name:p.name,emo:p.emo,score:p.score,off:p.off,n:(p.hand||[]).length,hand:p.id==pid||(S.res)?p.hand:undefined}))};
+  return{
+    ...S,
+    yn:(S.yard||[]).length,
+    yard:undefined,
+    suit:suitStatus(),
+    players:S.players.map(p=>({
+      id:p.id,name:p.name,emo:p.emo,score:p.score,off:p.off,
+      n:(p.hand||[]).length,
+      hand:p.id==pid||(S.res)?p.hand:undefined
+    }))
+  };
 }
 function bc(){for(const id in conns)if(conns[id].open)conns[id].send({t:'s',s:view(id)});onState(view('H'))}
 function send(m){host?act('H',m):hc.send(m)}
@@ -170,7 +198,12 @@ function bestTileForPlayer(p){
   return bt;
 }
 
+function clearFirstTimer(){
+  if(firstPlayTimer){clearTimeout(firstPlayTimer);firstPlayTimer=null}
+}
+
 function deal(){
+  clearFirstTimer();
   const n=S.players.length,mx=n>4?9:6,t=[];
   for(let a=0;a<=mx;a++)for(let b=a;b<=mx;b++)t.push([a,b]);
   sh(t);
@@ -178,16 +211,14 @@ function deal(){
   S.players.forEach(p=>{p.hand=t.splice(0,k);p.off=false});
   S.yard=S.mode=='draw'?t:[];
   S.chain=[];S.passes=0;S.res=null;
+  suitChoice=null;
 
   if(n===2){
-    // 2 pemain: Suit Batu Gunting Kertas dulu; pemenang langsung menurunkan kartu pertama
     S.phase='suit';
-    S.suit={picks:{},winner:null,draw:false};
-    suitChoice=null;
+    S.suit={picks:{},draw:false};
     em('suit',{pi:0});
     bc();
   }else{
-    // >2 pemain: kocok sebentar, lalu pemegang kartu tertinggi langsung menurunkan kartu pertama ke meja
     let best=-1,bi=0,bt;
     S.players.forEach((p,i)=>p.hand.forEach(x=>{
       const s=(x[0]==x[1]?1000:0)+x[0]+x[1];
@@ -197,11 +228,12 @@ function deal(){
     S.turn=bi;
     em('deal',{pi:bi});
     bc();
-    setTimeout(()=>{
+    firstPlayTimer=setTimeout(()=>{
+      firstPlayTimer=null;
       if(S.phase==='play'&&S.chain.length===0&&bt){
         play(bi,bt,'R');
       }
-    },1100);
+    },1000);
   }
 }
 
@@ -212,32 +244,32 @@ function suitWin(a,b){
 }
 
 function handleSuit(pid,choice){
-  if(!S||S.phase!=='suit')return;
+  if(!S||S.phase!=='suit'||!S.suit)return;
   if(!['rock','paper','scissors'].includes(choice))return;
   S.suit.picks[pid]=choice;
-  const p0=S.players[0].id, p1=S.players[1].id;
+  const p0=S.players[0]?.id, p1=S.players[1]?.id;
   const c0=S.suit.picks[p0], c1=S.suit.picks[p1];
   if(c0 && c1){
     const res=suitWin(c0,c1);
     if(res===0){
-      // Seri -> suit ulang
-      S.suit={picks:{},winner:null,draw:true};
+      S.suit={picks:{},draw:true};
       em('suit_draw',{pi:0});
       bc();
     }else{
       const winIdx=res===1?0:1;
       const starterTile=bestTileForPlayer(S.players[winIdx]);
-      S.suit.winner=winIdx;
       S.phase='play';
       S.turn=winIdx;
-      em('suit_win',{pi:winIdx,c0,c1});
+      S.suit=null;
+      em('suit_win',{pi:winIdx});
       bc();
-      // Begitu menang, kartu pertama pemenang langsung muncul di meja!
-      setTimeout(()=>{
+      clearFirstTimer();
+      firstPlayTimer=setTimeout(()=>{
+        firstPlayTimer=null;
         if(S.phase==='play'&&S.chain.length===0&&starterTile){
           play(winIdx,starterTile,'R');
         }
-      },950);
+      },650);
     }
   }else{
     em('suit_wait',{pi:S.players.findIndex(p=>p.id===pid)});
@@ -256,6 +288,7 @@ function act(pid,m){
 }
 
 function play(i,tl,side){
+  clearFirstTimer();
   const p=S.players[i],ix=p.hand.findIndex(x=>x[0]==tl[0]&&x[1]==tl[1]);
   if(ix<0)return;
   const[a,b]=tl,c=S.chain;
@@ -299,6 +332,7 @@ function auto(){
 }
 
 function end(w,blk){
+  clearFirstTimer();
   const tot=S.players.map(p=>p.hand.reduce((s,t)=>s+t[0]+t[1],0));
   if(blk){const m=Math.min(...tot);const ws=tot.map((x,i)=>x==m?i:-1).filter(i=>i>=0);w=ws.length==1?ws[0]:-1}
   let pts=0;
@@ -333,26 +367,29 @@ function onState(s){
 }
 
 function renderSuit(){
+  if(!S||S.phase!=='suit'||!S.suit)return;
   const p0=S.players[0],p1=S.players[1];
-  const opp=p0.id===me?p1:p0;
-  const picked=!!suitChoice;
+  const iAmP0=p0.id===me;
+  const myDone=iAmP0?S.suit.p0Done:S.suit.p1Done;
+  const oppDone=iAmP0?S.suit.p1Done:S.suit.p0Done;
+  const opp=iAmP0?p1:p0;
   ov(`
     <h2>✊✌️🖐️ Suit Penentu!</h2>
     <div class="hint">Menang suit = kartu pertamamu langsung turun!</div>
     <div class="card" style="width:100%">
-      <div class="pl"><span>${emo}</span><b>${esc(name)} (Kamu)</b><span>${picked?SUIT[suitChoice]:'⏳'}</span></div>
-      <div class="pl"><span>${opp.emo}</span><b>${esc(opp.name)}</b><span>${picked?'Siap / Menunggu…':'🤔'}</span></div>
+      <div class="pl"><span>${emo}</span><b>${esc(name)} (Kamu)</b><span>${myDone?(suitChoice?SUIT[suitChoice]:'✅'):'⏳'}</span></div>
+      <div class="pl"><span>${opp.emo}</span><b>${esc(opp.name)}</b><span>${oppDone?'Sudah pilih ✅':'🤔'}</span></div>
     </div>
     <div class="suit-btns">
-      <button class="suit-btn" data-c="rock" ${picked?'disabled':''}>✊<small>Batu</small></button>
-      <button class="suit-btn" data-c="paper" ${picked?'disabled':''}>🖐️<small>Kertas</small></button>
-      <button class="suit-btn" data-c="scissors" ${picked?'disabled':''}>✌️<small>Gunting</small></button>
+      <button class="suit-btn ${suitChoice==='rock'?'picked':''}" data-c="rock" ${myDone?'disabled':''}>✊<small>Batu</small></button>
+      <button class="suit-btn ${suitChoice==='paper'?'picked':''}" data-c="paper" ${myDone?'disabled':''}>🖐️<small>Kertas</small></button>
+      <button class="suit-btn ${suitChoice==='scissors'?'picked':''}" data-c="scissors" ${myDone?'disabled':''}>✌️<small>Gunting</small></button>
     </div>
-    <div class="hint">${picked?'Menunggu pilihan lawan…':'Pilih salah satu di atas'}</div>
+    <div class="hint">${myDone?'Menunggu lawan memilih…':'Pilih salah satu di atas'}</div>
   `);
   $('#ov').querySelectorAll('.suit-btn').forEach(btn=>{
     btn.onclick=()=>{
-      if(suitChoice)return;
+      if(myDone||suitChoice)return;
       suitChoice=btn.dataset.c;
       snd('chat');
       send({t:'suit',choice:suitChoice});
@@ -384,7 +421,7 @@ function fx(ev){
     ov(0);
     snd('shuf');
     ov(`<div class="shuf">${[0,1,2,3,4,5].map(i=>`<div class="t back" style="animation-delay:${i*.08}s"><i></i><i></i></div>`).join('')}</div><h2>Mengocok kartu… 🎲</h2><div class="hint">Kartu pembuka langsung turun ke meja</div>`);
-    setTimeout(()=>{if(S&&S.phase==='play')ov(0)},1050);
+    setTimeout(()=>{if(S&&S.phase==='play')ov(0)},950);
   }
   else if(ev.k=='play'){
     ov(0);
@@ -392,7 +429,7 @@ function fx(ev){
     toast(`${nm} ${R(['jreng! 💥','taruh kartu ala sultan 👑','gas pol! 🚀','sikat bleh 😏'])}`+(ev.dbl?' · BALAK! 🔥':''));
     fly={pi:ev.pi,tile:ev.tile};
   }
-  else if(ev.k=='draw'){snd('draw');toast(`${nm} ambil kartu 🃏`);if(p.id==me)fly={draw:1}}
+  else if(ev.k=='draw'){snd('draw');toast(`${nm} ambil kartu 🃏`);if(p&&p.id==me)fly={draw:1}}
   else if(ev.k=='pass'){snd('pass');toast(`${nm} lewat… ${R(['kartunya kena kutukan 🧙','tidur dulu 😴','bengong 🫠'])}`)}
   else if(ev.k=='end'){
     const w=S.res.w;
@@ -400,7 +437,7 @@ function fx(ev){
     if(w>=0&&S.players[w].id==me)'🎉🏆🥳✨'.match(/./gu).forEach(float);
     setTimeout(()=>ov(1),900);
   }
-  if(ev.k!='suit'&&ev.k!='suit_draw'&&S.players[S.turn]&&S.players[S.turn].id==me&&S.phase=='play'&&ev.k!='end'){
+  if(ev.k!='suit'&&ev.k!='suit_draw'&&ev.k!='suit_wait'&&S.players[S.turn]&&S.players[S.turn].id==me&&S.phase=='play'&&ev.k!='end'){
     setTimeout(()=>{snd('turn');toast('Giliranmu! 👉')},200);
   }
 }
@@ -433,23 +470,23 @@ function render(){
   board();hand();
   const my=S.players[S.turn]&&S.players[S.turn].id==me&&S.phase=='play';
   const h=S.players[mi].hand||[],cp=can(h),chain=S.chain.length>0;
-  $('#dr').disabled=!(my&&S.mode=='draw'&&S.yn&&!cp&&chain);
-  $('#ps').disabled=!(my&&!cp&&chain&&!(S.mode=='draw'&&S.yn));
   $('#dr').style.display=S.mode=='draw'?'':'none';
+  $('#dr').disabled=!(my&&S.mode=='draw'&&S.yn>0&&!cp&&chain);
+  $('#ps').disabled=!(my&&!cp&&chain&&!(S.mode=='draw'&&S.yn>0));
   const b=$('#bar');
   if(sel&&my){
     const t=sel,s=sides(t);
     b.innerHTML=s.map(x=>`<button class="btn" data-s="${x}">${x=='L'?'◀ Kiri ('+S.chain[0][0]+')':'Kanan ('+S.chain.at(-1)[1]+') ▶'}</button>`).join('');
   }else{
-    b.innerHTML=S.phase!='play'?'':my?(chain?(cp?'<span>Pilih kartu yang menyala ✨</span>':'<span>Tidak ada kartu cocok 😬</span>'):'<span>Giliranmu mulai! Pilih kartu ✨</span>'):`<span class="hint">Giliran ${S.players[S.turn].emo} ${esc(S.players[S.turn].name)}…</span>`;
+    b.innerHTML=S.phase!='play'?'':my?(chain?(cp?'<span>Pilih kartu yang menyala ✨</span>':'<span>Kartu tidak cocok — tekan '+(S.mode=='draw'&&S.yn>0?'Ambil':'Lewat')+'</span>'):'<span>Kartu pembuka siap!</span>'):`<span class="hint">Giliran ${S.players[S.turn].emo} ${esc(S.players[S.turn].name)}…</span>`;
   }
 }
 
 function board(){
-  const el=$('#board'),W=Math.min(el.clientWidth,480)-20,u=+getComputedStyle(document.documentElement).getPropertyValue('--h').replace('px','')||30;
+  const el=$('#board'),W=Math.max(200,Math.min(el.clientWidth,480)-24),u=+getComputedStyle(document.documentElement).getPropertyValue('--h').replace('px','')||28;
   const rows=[[]];let w=0;
   S.chain.forEach((t,i)=>{
-    const tw=(t[0]==t[1]?u:u*2)+4;
+    const tw=(t[0]==t[1]?u:u*2)+6;
     if(w+tw>W&&rows.at(-1).length){rows.push([]);w=0}
     rows.at(-1).push([t,i]);w+=tw;
   });
@@ -464,7 +501,7 @@ function board(){
       const f=fly.fromRect||(()=>{const c=document.querySelector(`.chip[data-p="${fly.pi}"]`);return c&&c.getBoundingClientRect()})();
       if(f){
         const r=sp.getBoundingClientRect();
-        sp.animate([{transform:`translate(${f.left+f.width/2-r.left-r.width/2}px,${f.top+f.height/2-r.top-r.height/2}px) scale(1.7) rotate(-35deg)`,opacity:.3},{transform:'none',opacity:1}],{duration:520,easing:'cubic-bezier(.2,.9,.3,1.25)'});
+        sp.animate([{transform:`translate(${f.left+f.width/2-r.left-r.width/2}px,${f.top+f.height/2-r.top-r.height/2}px) scale(1.5) rotate(-25deg)`,opacity:.35},{transform:'none',opacity:1}],{duration:460,easing:'cubic-bezier(.2,.9,.3,1.25)'});
       }
       sp.scrollIntoView({block:'center',behavior:'smooth'});
     }
@@ -483,14 +520,16 @@ function hand(){
     const isSel=sel&&sel[0]==t[0]&&sel[1]==t[1]?'sel':'';
     return `<span data-idx="${i}">${tile(t[0],t[1]).replace('class="t ','class="t '+cls+' '+isSel+' ')}</span>`;
   }).join('');
+  // Pusatkan hanya jika total lebar kartu lebih kecil dari wadah agar tidak terpotong di kiri/kanan
+  el.style.justifyContent=el.scrollWidth<=el.clientWidth?'center':'flex-start';
   if(S.ev&&S.ev.k=='deal'&&dealt!=S.seq){
     dealt=S.seq;
-    el.querySelectorAll('.t').forEach((t,i)=>t.animate([{transform:'translateY(-70vh) scale(.3) rotate(200deg)',opacity:0},{transform:'none',opacity:1}],{duration:500,delay:200+i*50,fill:'backwards',easing:'cubic-bezier(.2,.9,.3,1.2)'}));
+    el.querySelectorAll('.t').forEach((t,i)=>t.animate([{transform:'translateY(-50vh) scale(.5) rotate(120deg)',opacity:0},{transform:'none',opacity:1}],{duration:450,delay:150+i*45,fill:'backwards',easing:'cubic-bezier(.2,.9,.3,1.2)'}));
   }else if(fly&&fly.draw){
     const l=el.lastElementChild,y=$('#yd');
     if(l&&y){
       const a=y.getBoundingClientRect(),b=l.getBoundingClientRect();
-      l.animate([{transform:`translate(${a.left-b.left}px,${a.top-b.top}px) scale(.5)`,opacity:.3},{transform:'none',opacity:1}],{duration:450,easing:'ease-out'});
+      l.animate([{transform:`translate(${a.left-b.left}px,${a.top-b.top}px) scale(.5)`,opacity:.3},{transform:'none',opacity:1}],{duration:420,easing:'ease-out'});
     }
     fly=null;
   }
