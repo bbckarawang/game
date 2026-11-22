@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Othello P2P</title>
+<style>
+:root{--felt:#0f3d2e;--felt2:#145240;--ivory:#f6f0df;--brass:#d2a94a;--ink:#1d1a16;--board:#196b4f;--board2:#13573f}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{margin:0;height:100%;background:#0a2a20;color:var(--ivory);font-family:Georgia,'Palatino Linotype',serif;overflow:hidden}
+button,input{font:inherit}
+#app{max-width:480px;height:100%;margin:auto;position:relative;background:radial-gradient(120% 80% at 50% 30%,var(--felt2),var(--felt));display:flex;flex-direction:column;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.pad{padding:18px;gap:12px;display:flex;flex-direction:column;overflow-y:auto}
+.scr{display:none;flex:1;flex-direction:column;min-height:0}.scr.on{display:flex}
+h1{font-size:34px;margin:0;letter-spacing:.5px;color:var(--brass)}
+.btn{background:var(--brass);color:var(--ink);border:0;border-radius:14px;padding:13px 16px;font-weight:700;box-shadow:0 3px 0 #8c6d22;transition:.1s;flex-shrink:0}
+.btn:active{transform:translateY(3px);box-shadow:none}.btn.g{background:#ffffff18;color:var(--ivory);box-shadow:none;border:1px solid #ffffff30}
+.btn[disabled]{opacity:.4}
+input{background:#00000030;border:1px solid #ffffff30;color:var(--ivory);border-radius:12px;padding:12px;width:100%}
+.emo{display:flex;flex-wrap:wrap;gap:6px}.emo span{font-size:26px;padding:4px 7px;border-radius:12px;border:2px solid transparent}.emo span.s{border-color:var(--brass);background:#ffffff18}
+.card{background:#00000028;border:1px solid #ffffff1f;border-radius:16px;padding:12px;flex-shrink:0}
+.pl{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #ffffff14}.pl:last-child{border-bottom:0}.pl b{flex:1}
+/* game */
+#top{display:flex;gap:8px;padding:10px 12px 6px;align-items:stretch}
+.pbox{flex:1;background:#00000030;border:2px solid transparent;border-radius:14px;padding:8px 10px;display:flex;align-items:center;gap:8px;transition:.2s;min-width:0}
+.pbox.on{border-color:var(--brass);box-shadow:0 0 16px #d2a94a66;transform:translateY(-2px)}
+.pbox.off{opacity:.5}
+.pbox b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
+.disc-ico{width:22px;height:22px;border-radius:50%;flex:none;box-shadow:0 2px 4px #0008,inset 0 2px 3px #fff5}
+.disc-ico.b{background:radial-gradient(circle at 35% 30%,#444,#141414 70%,#050505);border:1px solid #ffffff33}
+.disc-ico.w{background:radial-gradient(circle at 35% 30%,#fff,#e8e0ca 70%,#b8ae94);border:1px solid #0003}
+#status{text-align:center;font-size:14px;padding:4px 12px;min-height:26px;display:flex;align-items:center;justify-content:center}
+#board-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:8px 12px;min-height:0}
+#board{width:100%;max-width:392px;aspect-ratio:1/1;background:#09291e;padding:8px;border-radius:16px;box-shadow:0 8px 24px #0008,inset 0 0 0 2px var(--brass);display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);gap:3px}
+.cell{background:linear-gradient(145deg,var(--board),var(--board2));border-radius:5px;position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.cell.hint::after{content:'';width:28%;height:28%;border-radius:50%;background:rgba(246,240,223,.32);border:1.5px solid rgba(210,169,74,.75);animation:pulse 1.3s infinite ease-in-out}
+.cell.last{box-shadow:inset 0 0 0 2px rgba(210,169,74,.75)}
+@keyframes pulse{0%,100%{transform:scale(.85);opacity:.6}50%{transform:scale(1.1);opacity:1}}
+.piece{width:80%;height:80%;border-radius:50%;position:relative;transform-style:preserve-3d;transition:transform .42s cubic-bezier(.25,1.2,.4,1)}
+.piece.w{transform:rotateY(180deg)}
+.piece .f{position:absolute;inset:0;border-radius:50%;backface-visibility:hidden;box-shadow:0 3px 6px #0009}
+.piece .front{background:radial-gradient(circle at 35% 30%,#4a4a4a,#161616 72%,#050505);border:1px solid #ffffff2b}
+.piece .backf{background:radial-gradient(circle at 35% 30%,#ffffff,#ebe3cd 72%,#b8ae94);border:1px solid #0003;transform:rotateY(180deg)}
+.piece.pop{animation:pop .28s ease-out}
+@keyframes pop{from{transform:scale(.3)}to{transform:scale(1)}}
+#dock{display:flex;gap:8px;padding:6px 12px 12px}
+#toasts{position:absolute;top:calc(env(safe-area-inset-top) + 64px);left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;z-index:9}
+.toast{background:#101010e6;border:1px solid var(--brass);border-radius:20px;padding:8px 16px;font-size:14px;animation:ti .35s cubic-bezier(.2,1.4,.4,1),to .4s 2.3s forwards;max-width:90%;box-shadow:0 6px 18px #0008}
+.toast.c{background:#f6f0dff2;color:var(--ink);border-color:#fff}
+@keyframes ti{from{transform:translateY(-30px) scale(.7);opacity:0}}@keyframes to{to{opacity:0;transform:translateY(-14px)}}
+#chat{position:absolute;left:0;right:0;bottom:0;background:#0c241cf5;border-top:2px solid var(--brass);border-radius:20px 20px 0 0;padding:12px;transform:translateY(105%);transition:.3s;z-index:8;max-height:70%;display:flex;flex-direction:column;gap:8px}
+#chat.on{transform:none}#log{overflow:auto;flex:1;min-height:90px;font-size:14px;display:flex;flex-direction:column;gap:4px}
+.qk{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}.qk span{flex:none;background:#ffffff1c;border-radius:16px;padding:6px 11px;font-size:13px}
+.fl{position:absolute;bottom:90px;font-size:34px;animation:fl 2s ease-out forwards;pointer-events:none;z-index:7}
+@keyframes fl{to{transform:translateY(-55vh) rotate(20deg) scale(1.6);opacity:0}}
+#ov{position:absolute;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:10;flex-direction:column;gap:12px;text-align:center;padding:20px}#ov.on{display:flex}
+.hint{opacity:.7;font-size:13px}.shake{animation:sk .3s}@keyframes sk{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01s!important;transition-duration:.01s!important}}
+</style></head><body>
+<div id="app">
+  <div id="home" class="scr on pad">
+    <h1>⚫⚪ Othello P2P</h1>
+    <div class="hint">Duel 2 pemain lewat room. Apit bidak lawan untuk membaliknya!</div>
+    <input id="nm" maxlength="12" placeholder="Nama kamu">
+    <div class="emo" id="eo"></div>
+    <button class="btn" id="mk">Buat room baru</button>
+    <div class="card" style="display:flex;gap:8px">
+      <input id="cd" maxlength="4" placeholder="KODE" style="text-transform:uppercase">
+      <button class="btn" id="jn">Gabung</button>
+    </div>
+    <div class="hint" id="hs"></div>
+  </div>
+
+  <div id="lobby" class="scr pad">
+    <h1>Ruang tunggu</h1>
+    <div class="card">
+      <div class="hint">Kode room</div>
+      <div style="font-size:40px;letter-spacing:8px;color:var(--brass)" id="rc"></div>
+      <button class="btn g" id="cp" style="margin-top:6px">📋 Salin link ajakan</button>
+    </div>
+    <div class="card" id="pls"></div>
+    <div class="card hint">Host akan memegang bidak <b>Hitam</b> (jalan duluan), tamu memegang <b>Putih</b>. Jika tidak ada langkah sah, giliran otomatis lewat.</div>
+    <button class="btn" id="go" style="display:none">Mulai main 🎲</button>
+    <div class="hint" id="wt"></div>
+  </div>
+
+  <div id="game" class="scr">
+    <div id="top"></div>
+    <div id="status"></div>
+    <div id="board-wrap"><div id="board"></div></div>
+    <div id="dock">
+      <button class="btn g" id="ht">💡 Petunjuk</button>
+      <button class="btn g" id="ct" style="flex:0 0 64px">💬</button>
+    </div>
+  </div>
+
+  <div id="toasts"></div>
+  <div id="chat">
+    <div id="log"></div>
+    <div class="qk" id="rx"></div>
+    <div class="qk" id="qk"></div>
+    <div style="display:flex;gap:6px">
+      <input id="ci" maxlength="60" placeholder="Ketik pesan…">
+      <button class="btn" id="cs" style="padding:10px 14px">Kirim</button>
+    </div>
+    <button class="btn g" id="cc" style="padding:8px">Tutup</button>
+  </div>
+  <div id="ov"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+const $=s=>document.querySelector(s),R=a=>a[Math.random()*a.length|0],EM=['😎','🤠','🦊','🐸','🐼','👻','🤡','🐙','🦄','🐯'];
+const QK=['Ketikung balik! 😎','Wah, kena apit nih 😭','Pojokan aman gak ya? 🤔','Awas kudeta di akhir 😈','Nge-pass mulu nih 🤣','GGWP bang 🥲'];
+const RX=['😂','🔥','😭','😈','🤡','👏','🥶','💀'];
+const DIRS=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+
+let S,me,host=false,peer,conn,hc,code,lastSeq=-1,name,emo=R(EM),ac,mute=false,showHints=true;
+
+/* ---- suara ---- */
+function tn(f,d,ty='sine',v=.15,t=0,sl){try{ac=ac||new AudioContext();const o=ac.createOscillator(),g=ac.createGain(),n=ac.currentTime+t;o.type=ty;o.frequency.setValueAtTime(f,n);if(sl)o.frequency.exponentialRampToValueAtTime(sl,n+d);g.gain.setValueAtTime(v,n);g.gain.exponentialRampToValueAtTime(.001,n+d);o.connect(g).connect(ac.destination);o.start(n);o.stop(n+d)}catch(e){}}
+const SND={
+  place:()=>tn(220,.08,'triangle',.18,0,90),
+  flip:(k=0)=>tn(360+k*55,.09,'sine',.12,k*.045,520+k*55),
+  pass:()=>tn(340,.28,'sine',.14,0,180),
+  no:()=>tn(130,.18,'sawtooth',.12,0,80),
+  chat:()=>{tn(700,.06,'sine',.12);tn(1000,.08,'sine',.1,.06)},
+  turn:()=>{tn(880,.11,'triangle',.1);tn(1320,.14,'triangle',.08,.1)},
+  win:()=>[523,659,784,1047].forEach((f,i)=>tn(f,.18,'triangle',.16,i*.11)),
+  lose:()=>[390,320,250,180].forEach((f,i)=>tn(f,.22,'sawtooth',.11,i*.14))
+};
+const snd=(k,x)=>!mute&&SND[k]&&SND[k](x);
+
+/* ---- ui kecil ---- */
+function toast(h,c=''){const d=document.createElement('div');d.className='toast '+c;d.innerHTML=h;$('#toasts').append(d);setTimeout(()=>d.remove(),2800)}
+function float(e){for(let i=0;i<3;i++){const d=document.createElement('div');d.className='fl';d.textContent=e;d.style.left=(10+Math.random()*75)+'%';d.style.animationDelay=i*.15+'s';$('#app').append(d);setTimeout(()=>d.remove(),2400)}}
+const esc=s=>String(s).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+function show(id){document.querySelectorAll('.scr').forEach(e=>e.classList.toggle('on',e.id==id))}
+
+/* ---- jaringan p2p (2 pemain) ---- */
+const ID=c=>'goth-'+c;
+function startHost(){
+  code=Array.from({length:4},()=>R([...'ABCDEFGHJKMNPQRSTUVWXYZ23456789'])).join('');
+  peer=new Peer(ID(code));
+  peer.on('error',e=>{if(e.type=='unavailable-id')startHost();else{toast('⚠️ Jaringan: '+e.type);$('#mk').disabled=false}});
+  peer.on('open',()=>{
+    host=true;me='H';
+    S={phase:'lobby',players:[{id:'H',name,emo,color:1,off:false}],board:initBoard(),turn:1,lastMove:null,seq:0,ev:null,res:null};
+    bc();show('lobby');
+  });
+  peer.on('connection',c=>{
+    if(S.phase!='lobby'||S.players.length>=2){c.on('open',()=>c.send({t:'full'}));return setTimeout(()=>c.close(),250)}
+    conn=c;
+    c.on('data',m=>hrecv(c,m));
+    c.on('close',()=>{
+      if(conn!=c)return;conn=null;
+      const p=S.players.find(x=>x.id==c.peer);if(!p)return;
+      if(S.phase=='lobby'){S.players=S.players.filter(x=>x!=p);bc()}
+      else{p.off=true;toast(p.emo+' '+esc(p.name)+' terputus 🔌');bc()}
+    });
+  });
+}
+function join(c){
+  code=c.toUpperCase();peer=new Peer();
+  peer.on('error',e=>toast('⚠️ '+(e.type=='peer-unavailable'?'Room tidak ketemu':e.type)));
+  peer.on('open',id=>{
+    me=id;hc=peer.connect(ID(code),{reliable:true});
+    hc.on('open',()=>hc.send({t:'hi',name,emo}));
+    hc.on('data',m=>{
+      if(m.t=='s')onState(m.s);
+      else if(m.t=='c')onChat(m);
+      else if(m.t=='full'){toast('Room penuh / sudah mulai 🚫');setTimeout(()=>location.reload(),1200)}
+    });
+    hc.on('close',()=>{toast('Terputus dari host 😵');setTimeout(()=>location.reload(),1800)});
+  });
+}
+function hrecv(c,m){
+  if(m.t=='hi'){
+    if(S.phase!='lobby'||S.players.length>=2){c.send({t:'full'});return setTimeout(()=>c.close(),250)}
+    S.players.push({id:c.peer,name:m.name,emo:m.emo,color:2,off:false});
+    bc();
+  }else act(c.peer,m);
+}
+function bc(){
+  if(conn&&conn.open)conn.send({t:'s',s:S});
+  onState(S);
+}
+function send(m){host?act('H',m):hc.send(m)}
+
+/* ---- aturan othello (host) ---- */
+function initBoard(){
+  const b=Array.from({length:8},()=>Array(8).fill(0));
+  b[3][3]=2;b[3][4]=1;b[4][3]=1;b[4][4]=2;
+  return b;
+}
+function flips(b,r,c,col){
+  if(r<0||r>7||c<0||c>7||b[r][c]!==0)return[];
+  const opp=col===1?2:1,got=[];
+  for(const[dr,dc]of DIRS){
+    let nr=r+dr,nc=c+dc,line=[];
+    while(nr>=0&&nr<8&&nc>=0&&nc<8&&b[nr][nc]===opp){line.push([nr,nc]);nr+=dr;nc+=dc}
+    if(line.length&&nr>=0&&nr<8&&nc>=0&&nc<8&&b[nr][nc]===col)got.push(...line);
+  }
+  return got;
+}
+function validMoves(b,col){
+  const m=[];
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){const f=flips(b,r,c,col);if(f.length)m.push({r,c,flips:f})}
+  return m;
+}
+function countDiscs(b){
+  let b1=0,w2=0;
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){if(b[r][c]===1)b1++;else if(b[r][c]===2)w2++}
+  return {1:b1,2:w2};
+}
+function em(k,o={}){S.seq++;S.ev={k,...o}}
+
+function startGame(){
+  S.phase='play';S.board=initBoard();S.turn=1;S.lastMove=null;S.res=null;
+  em('start',{col:1});bc();
+}
+
+function act(pid,m){
+  if(m.t=='chat')return chatAll(pid,m.m);
+  if(S.phase!='play')return;
+  const p=S.players.find(x=>x.id==pid);
+  if(!p||p.color!==S.turn)return;
+  if(m.t=='move')makeMove(p.color,m.r,m.c);
+}
+
+function makeMove(col,r,c){
+  const f=flips(S.board,r,c,col);
+  if(!f.length)return;
+  S.board[r][c]=col;
+  for(const[fr,fc]of f)S.board[fr][fc]=col;
+  S.lastMove={r,c,col};
+  em('move',{col,r,c,flipped:f.length});
+  stepTurn(col===1?2:1,false);
+}
+
+function stepTurn(nextCol,justPassed){
+  const nm=validMoves(S.board,nextCol);
+  const cnt=countDiscs(S.board);
+  if(cnt[1]+cnt[2]===64||cnt[1]===0||cnt[2]===0)return finishGame(cnt);
+  if(nm.length){
+    S.turn=nextCol;
+    bc();
+    return;
+  }
+  if(justPassed){
+    return finishGame(cnt);
+  }
+  // Giliran berikutnya tidak punya langkah sah -> otomatis lewat (pass)
+  S.turn=nextCol===1?2:1;
+  const om=validMoves(S.board,S.turn);
+  if(!om.length)return finishGame(cnt);
+  em('pass',{passedCol:nextCol,nextCol:S.turn});
+  bc();
+}
+
+function finishGame(cnt){
+  S.phase='over';
+  const winCol=cnt[1]>cnt[2]?1:(cnt[2]>cnt[1]?2:0);
+  S.res={winCol,counts:cnt};
+  em('over',{winCol});
+  bc();
+}
+
+/* ---- chat ---- */
+function chatAll(pid,m){
+  const p=S.players.find(x=>x.id==pid);if(!p)return;
+  const o={t:'c',n:p.name,e:p.emo,m:String(m).slice(0,60)};
+  if(conn&&conn.open)conn.send(o);
+  onChat(o);
+}
+function onChat(o){
+  snd('chat');
+  if(RX.includes(o.m))float(o.m);
+  const li=$('#log');li.insertAdjacentHTML('beforeend',`<div>${o.e} <b>${esc(o.n)}</b>: ${esc(o.m)}</div>`);
+  li.scrollTop=1e9;
+  if(!$('#chat').classList.contains('on'))toast(`${o.e} <b>${esc(o.n)}</b>: ${esc(o.m)}`,'c');
+}
+
+/* ---- tampilan ---- */
+function onState(s){
+  S=s;
+  if(s.phase=='lobby'){lastSeq=s.seq;ov(0);return drawLobby()}
+  if(!$('#game').classList.contains('on'))show('game');
+  if(s.ev&&s.seq!=lastSeq){lastSeq=s.seq;fx(s.ev)}
+  render();
+}
+
+function fx(ev){
+  const meP=S.players.find(p=>p.id==me);
+  if(ev.k=='start'){
+    ov(0);snd('turn');
+    toast(meP&&meP.color===1?'Giliranmu jalan duluan (Hitam)! ⚫':'Hitam jalan duluan ⚫');
+  }else if(ev.k=='move'){
+    snd('place');
+    snd('flip',Math.min(ev.flipped,6));
+    if(ev.flipped>=4)toast(`Mantap! ${ev.flipped} bidak terbalik 🔥`);
+    const nextP=S.players.find(p=>p.color===(ev.col===1?2:1));
+    if(nextP&&nextP.id==me&&S.phase=='play')setTimeout(()=>{snd('turn');toast('Giliranmu! 👉')},360);
+  }else if(ev.k=='pass'){
+    snd('pass');
+    const pp=S.players.find(p=>p.color===ev.passedCol);
+    toast(`${pp?pp.emo+' '+esc(pp.name):'Lawan'} lewat (tidak ada langkah sah) ⏭️`);
+    const np=S.players.find(p=>p.color===ev.nextCol);
+    if(np&&np.id==me&&S.phase=='play')setTimeout(()=>{snd('turn');toast('Giliranmu! 👉')},360);
+  }else if(ev.k=='over'){
+    const w=S.players.find(p=>p.color===S.res.winCol);
+    snd(w&&w.id==me?'win':'lose');
+    if(w&&w.id==me)'🎉🏆🥳✨'.match(/./gu).forEach(float);
+    setTimeout(()=>ov(1),750);
+  }
+}
+
+function ov(h){
+  const o=$('#ov');
+  if(h===0){o.classList.remove('on');return}
+  if(h===1){
+    const r=S.res,w=S.players.find(p=>p.color===r.winCol);
+    let html=`<h1>${w?`🏆 ${w.emo} ${esc(w.name)} Menang!`:'🤝 Seri!'}</h1>`;
+    html+=`<div class="card" style="width:100%">`+S.players.map(p=>`
+      <div class="pl">
+        <span class="disc-ico ${p.color===1?'b':'w'}"></span>
+        <span>${p.emo}</span><b>${esc(p.name)}</b>
+        <b>${r.counts[p.color]} bidak</b>
+      </div>`).join('')+'</div>';
+    html+=host?'<button class="btn" id="nx">Main lagi 🔄</button>':'<div class="hint">Menunggu host memulai ronde baru…</div>';
+    o.innerHTML=html;o.classList.add('on');
+    const b=$('#nx');if(b)b.onclick=startGame;
+  }
+}
+
+function drawLobby(){
+  show('lobby');
+  $('#rc').textContent=code;
+  $('#pls').innerHTML=S.players.map(p=>`
+    <div class="pl">
+      <span class="disc-ico ${p.color===1?'b':'w'}"></span>
+      <span style="font-size:24px">${p.emo}</span>
+      <b>${esc(p.name)}</b>
+      <span class="hint">${p.id=='H'?'host · Hitam':'tamu · Putih'}</span>
+    </div>`).join('')+`<div class="hint" style="margin-top:6px">${S.players.length}/2 pemain</div>`;
+  $('#go').style.display=host?'block':'none';
+  $('#go').disabled=S.players.length<2;
+  $('#wt').textContent=host?(S.players.length<2?'Tunggu 1 teman bergabung…':''):'Menunggu host memulai…';
+}
+
+function render(){
+  const cnt=countDiscs(S.board);
+  $('#top').innerHTML=S.players.map(p=>`
+    <div class="pbox ${p.color===S.turn&&S.phase=='play'?'on':''} ${p.off?'off':''}">
+      <span class="disc-ico ${p.color===1?'b':'w'}"></span>
+      <span style="font-size:24px">${p.emo}</span>
+      <div style="min-width:0;flex:1">
+        <b>${esc(p.name)}</b>
+        <span class="hint">${p.color===1?'Hitam':'Putih'} · <b>${cnt[p.color]}</b></span>
+      </div>
+    </div>`).join('');
+
+  const meP=S.players.find(p=>p.id==me);
+  const myTurn=!!(meP&&meP.color===S.turn&&S.phase=='play');
+  const moves=myTurn?validMoves(S.board,meP.color):[];
+  const moveMap=new Map(moves.map(m=>[m.r+','+m.c,m]));
+
+  const curP=S.players.find(p=>p.color===S.turn);
+  $('#status').innerHTML=S.phase!='play'
+    ?'<span class="hint">Permainan selesai</span>'
+    :(myTurn
+      ?`<b>Giliranmu</b> (${meP.color===1?'Hitam ⚫':'Putih ⚪'}) — pilih petak menyala`
+      :`<span class="hint">Giliran ${curP?curP.emo+' <b>'+esc(curP.name)+'</b> ('+(curP.color===1?'Hitam':'Putih')+')':'…'}</span>`);
+
+  const bd=$('#board');
+  bd.innerHTML='';
+  for(let r=0;r<8;r++){
+    for(let c=0;c<8;c++){
+      const v=S.board[r][c];
+      const cell=document.createElement('div');
+      cell.className='cell';
+      if(S.lastMove&&S.lastMove.r===r&&S.lastMove.c===c)cell.classList.add('last');
+      if(showHints&&moveMap.has(r+','+c))cell.classList.add('hint');
+      if(v!==0){
+        const pc=document.createElement('div');
+        pc.className='piece '+(v===2?'w':'');
+        if(S.lastMove&&S.lastMove.r===r&&S.lastMove.c===c)pc.classList.add('pop');
+        pc.innerHTML='<div class="f front"></div><div class="f backf"></div>';
+        cell.appendChild(pc);
+      }
+      cell.onclick=()=>onCellClick(r,c,cell,myTurn,moveMap.has(r+','+c));
+      bd.appendChild(cell);
+    }
+  }
+}
+
+function onCellClick(r,c,cell,myTurn,isValid){
+  if(S.phase!='play')return;
+  if(!myTurn){snd('no');toast('Sabar, bukan giliranmu 😤');return}
+  if(!isValid){
+    snd('no');cell.classList.add('shake');
+    toast(R(['Tidak ada bidak lawan yang diapit 🙅','Coba pilih petak yang ada titiknya 👀']));
+    setTimeout(()=>cell.classList.remove('shake'),350);
+    return;
+  }
+  send({t:'move',r,c});
+}
+
+/* ---- event ---- */
+$('#eo').innerHTML=EM.map(e=>`<span>${e}</span>`).join('');
+const pe=()=>[...$('#eo').children].forEach(s=>s.classList.toggle('s',s.textContent==emo));pe();
+$('#eo').onclick=e=>{if(e.target.tagName=='SPAN'){emo=e.target.textContent;pe();snd('chat')}};
+const nm=()=>{name=$('#nm').value.trim()||R(['Si Taktis','Bang Reversi','Mas Apit','Neng Othello']);try{ac=ac||new AudioContext()}catch(e){}return true};
+$('#mk').onclick=()=>{nm();$('#mk').disabled=true;startHost()};
+$('#jn').onclick=()=>{const c=$('#cd').value.trim();if(c.length<4)return toast('Isi kode 4 huruf dulu 🔤');nm();join(c)};
+if(location.hash.length==5){$('#cd').value=location.hash.slice(1);$('#hs').textContent='Kode dari link sudah terisi. Tinggal tekan Gabung 👆'}
+$('#cp').onclick=()=>{const u=location.href.split('#')[0]+'#'+code;(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>toast('Link disalin 📋'),()=>prompt('Salin link:',u))};
+$('#go').onclick=startGame;
+$('#ht').onclick=()=>{showHints=!showHints;$('#ht').textContent=showHints?'💡 Petunjuk: ON':'💡 Petunjuk: OFF';render()};
+$('#ct').onclick=()=>$('#chat').classList.add('on');
+$('#cc').onclick=()=>$('#chat').classList.remove('on');
+$('#qk').innerHTML=QK.map(q=>`<span>${q}</span>`).join('');
+$('#rx').innerHTML=RX.map(q=>`<span style="font-size:22px">${q}</span>`).join('');
+const sc=m=>{if(m)host?chatAll('H',m):hc.send({t:'chat',m})};
+$('#qk').onclick=$('#rx').onclick=e=>{if(e.target.tagName=='SPAN')sc(e.target.textContent)};
+$('#cs').onclick=()=>{sc($('#ci').value.trim());$('#ci').value=''};
+$('#ci').onkeydown=e=>{if(e.key=='Enter')$('#cs').click()};
+</script></body></html>
