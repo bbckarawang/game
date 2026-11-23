@@ -3,7 +3,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <title>Domino Gaple P2P</title>
 <style>
-:root{--felt:#0f3d2e;--felt2:#145240;--ivory:#f6f0df;--brass:#d2a94a;--wine:#8a2433;--ink:#1d1a16;--h:28px}
+:root{--felt:#0f3d2e;--felt2:#145240;--ivory:#f6f0df;--brass:#d2a94a;--wine:#8a2433;--ink:#1d1a16;--h:26px}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
 html,body{margin:0;height:100%;background:#0a2a20;color:var(--ivory);font-family:Georgia,'Palatino Linotype',serif;overflow:hidden}
 button,input,select{font:inherit}
@@ -21,7 +21,7 @@ input,select{background:#00000030;border:1px solid #ffffff30;color:var(--ivory);
 /* tile */
 .t{display:inline-flex;background:linear-gradient(145deg,#fffdf4,#e9dfc4);border-radius:7px;box-shadow:0 2px 0 #b9ad8c,0 4px 8px #0006;color:var(--ink);flex:none;position:relative;overflow:hidden}
 .t.v{flex-direction:column}
-.t i{width:var(--h);height:var(--h);display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);padding:3px;gap:1px;flex:none}
+.t i{width:var(--h);height:var(--h);display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);padding:2.5px;gap:1px;flex:none}
 .t i+i{border-left:1.5px solid #8a7e5e66}
 .t.v i+i{border-left:0;border-top:1.5px solid #8a7e5e66}
 .t u{border-radius:50%;background:var(--ink);align-self:center;justify-self:center;width:76%;height:76%}
@@ -31,8 +31,20 @@ input,select{background:#00000030;border:1px solid #ffffff30;color:var(--ivory);
 #top{display:flex;gap:6px;padding:8px;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
 .chip{flex:none;min-width:66px;text-align:center;background:#00000030;border:2px solid transparent;border-radius:14px;padding:5px 8px;font-size:12px;transition:.25s}
 .chip em{font-style:normal;font-size:24px;display:block}.chip.on{border-color:var(--brass);box-shadow:0 0 16px #d2a94a77;transform:translateY(-2px)}.chip.off{opacity:.4}
-#board{flex:1;overflow:auto;padding:14px 10px;display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center;min-height:0}
-.row{display:flex;align-items:center;gap:3px;min-height:calc(var(--h)*2 + 4px);flex-shrink:0}
+#board{flex:1;overflow:auto;padding:14px 12px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0}
+.chain-wrap{display:flex;flex-direction:column;align-items:stretch;width:100%;max-width:440px}
+.row{display:flex;align-items:center;justify-content:flex-start;gap:2px;min-height:calc(var(--h)*2 + 4px);position:relative}
+.row.rev{justify-content:flex-end}
+.row span{display:inline-flex;align-items:center;position:relative;flex:none}
+/* sambungan horizontal antar ubin dalam satu baris */
+.row span+span::before{content:'';width:2px;height:10px;background:#d2a94a99;border-radius:2px;margin-right:1px}
+/* belokan vertikal penghubung antar baris */
+.turn-v{display:flex;align-items:center;height:calc(var(--h)*2 + 2px);position:relative;flex:none}
+.turn-v.r{justify-content:flex-end;padding-right:4px}
+.turn-v.l{justify-content:flex-start;padding-left:4px}
+.turn-v::before{content:'';position:absolute;width:2px;top:-4px;bottom:-4px;background:linear-gradient(to bottom,#d2a94a99,#d2a94a55)}
+.turn-v.r::before{right:calc(var(--h) + 2px)}
+.turn-v.l::before{left:calc(var(--h) + 2px)}
 #bar{min-height:44px;display:flex;gap:8px;justify-content:center;align-items:center;padding:4px 10px;font-size:13px;flex-shrink:0}
 #hand{display:flex;gap:7px;padding:18px 12px 10px;overflow-x:auto;min-height:calc(var(--h)*2 + 34px);align-items:flex-end;flex-shrink:0;scrollbar-width:none}
 #hand::-webkit-scrollbar{display:none}
@@ -51,7 +63,7 @@ input,select{background:#00000030;border:1px solid #ffffff30;color:var(--ivory);
 .qk{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}.qk span{flex:none;background:#ffffff1c;border-radius:16px;padding:6px 11px;font-size:13px;cursor:pointer}
 .fl{position:absolute;bottom:90px;font-size:34px;animation:fl 2s ease-out forwards;pointer-events:none;z-index:7}
 @keyframes fl{to{transform:translateY(-55vh) rotate(20deg) scale(1.6);opacity:0}}
-#ov{position:absolute;inset:0;background:#000c;display:none;align-items:center;justify-content:center;z-index:10;flex-direction:column;gap:12px;text-align:center;padding:20px}#ov.on{display:flex}
+#ov{position:absolute;inset:0;background:#000c;display:none;align-items:center;justify-content:center;z-index:10;flex-direction:column;gap:12px;text-align:center;padding:20px;overflow-y:auto}#ov.on{display:flex}
 .suit-btns{display:flex;gap:12px;margin-top:6px}.suit-btn{font-size:34px;width:82px;height:82px;border-radius:20px;border:2px solid var(--brass);background:#ffffff18;color:var(--ivory);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;transition:.12s}.suit-btn small{font-size:11px;font-weight:700}.suit-btn:active,.suit-btn.picked{transform:scale(.95);background:var(--brass);color:var(--ink)}.suit-btn[disabled]{opacity:.55;pointer-events:none}
 .shuf{position:relative;width:140px;height:90px}.shuf .t{position:absolute;left:50px;top:20px;--h:26px;animation:sh .5s ease-in-out infinite alternate}
 @keyframes sh{from{transform:translate(-50px,0) rotate(-25deg)}to{transform:translate(50px,-10px) rotate(25deg)}}
@@ -124,13 +136,8 @@ function startHost(){
       else{
         p.off=true;
         toast(p.emo+' '+esc(p.name)+' kabur 🏃');
-        if(H.phase==='suit'){
-          // Jika lawan kabur saat suit, yang bertahan langsung menang suit
-          const stayIdx=H.players.findIndex(x=>!x.off);
-          if(stayIdx>=0)finishSuitWin(stayIdx);
-        }else if(H.players[H.turn]==p){
-          setTimeout(auto,700);
-        }
+        if(H.phase==='suit')checkSuitProgress();
+        else if(H.players[H.turn]==p)setTimeout(auto,700);
       }
       bc();
     });
@@ -173,15 +180,21 @@ function hrecv(c,m){
 
 function suitStatus(){
   if(!H||!H.suit)return null;
-  const p0=H.players[0]?.id, p1=H.players[1]?.id;
+  const active=H.players.filter(p=>!p.off);
+  const doneCount=active.filter(p=>Boolean(H.suit.picks && H.suit.picks[p.id])).length;
   return {
-    p0Done: Boolean(H.suit.picks && H.suit.picks[p0]),
-    p1Done: Boolean(H.suit.picks && H.suit.picks[p1]),
+    total: active.length,
+    doneCount,
+    myDone: false, // diisi di view(pid)
     draw: Boolean(H.suit.draw)
   };
 }
 
 function view(pid){
+  const st=suitStatus();
+  if(st&&H.suit){
+    st.myDone=Boolean(H.suit.picks && H.suit.picks[pid]);
+  }
   return{
     phase:H.phase,
     mode:H.mode,
@@ -192,7 +205,7 @@ function view(pid){
     chain:H.chain,
     res:H.res,
     yn:(H.yard||[]).length,
-    suit:suitStatus(),
+    suit:st,
     players:H.players.map(p=>({
       id:p.id,name:p.name,emo:p.emo,score:p.score,off:p.off,
       n:(p.hand||[]).length,
@@ -236,72 +249,90 @@ function deal(){
   H.chain=[];H.passes=0;H.res=null;
   suitChoice=null;lastSuitKey='';
 
-  if(n===2){
-    H.phase='suit';
-    H.suit={picks:{},draw:false};
-    em('suit',{pi:0});
-    bc();
-  }else{
-    let best=-1,bi=0,bt;
-    H.players.forEach((p,i)=>p.hand.forEach(x=>{
-      const s=(x[0]==x[1]?1000:0)+x[0]+x[1];
-      if(s>best){best=s;bi=i;bt=x}
-    }));
-    H.phase='play';
-    H.turn=bi;
-    H.suit=null;
-    em('deal',{pi:bi});
-    bc();
-    firstPlayTimer=setTimeout(()=>{
-      firstPlayTimer=null;
-      if(H&&H.phase==='play'&&H.chain.length===0&&bt){
-        play(bi,bt,'R');
-      }
-    },1000);
+  // Selalu mulai dengan Suit / Hompimpa untuk semua jumlah pemain (2 - 8)
+  H.phase='suit';
+  H.suit={picks:{},draw:false};
+  em('suit',{pi:0});
+  bc();
+}
+
+function beatsSuit(a,b){
+  return (a==='rock'&&b==='scissors')||(a==='scissors'&&b==='paper')||(a==='paper'&&b==='rock');
+}
+
+function resolveMultiSuit(activePlayers,picks){
+  // Jika semua memilih sama -> seri total
+  const vals=activePlayers.map(p=>picks[p.id]);
+  const uniq=[...new Set(vals)];
+  if(uniq.length===1)return {draw:true,winIdx:-1};
+
+  // Cari pemain yang tidak dikalahkan oleh pilihan lawan manapun
+  const contenders=activePlayers.filter((p,idx)=>{
+    const myC=picks[p.id];
+    return !activePlayers.some((other,oIdx)=>oIdx!==idx&&beatsSuit(picks[other.id],myC));
+  });
+
+  if(contenders.length===1){
+    const winIdx=H.players.findIndex(p=>p.id===contenders[0].id);
+    return {draw:false,winIdx};
   }
+  if(contenders.length>1){
+    // Pilih acak di antara pemenang bersama (hompimpa/suit seri sebagian)
+    const chosen=R(contenders);
+    const winIdx=H.players.findIndex(p=>p.id===chosen.id);
+    return {draw:false,winIdx};
+  }
+  return {draw:true,winIdx:-1};
 }
 
-function suitWin(a,b){
-  if(a===b)return 0;
-  if((a==='rock'&&b==='scissors')||(a==='scissors'&&b==='paper')||(a==='paper'&&b==='rock'))return 1;
-  return 2;
-}
-
-function finishSuitWin(winIdx,c0,c1){
-  const starterTile=bestTileForPlayer(H.players[winIdx]);
+function finishSuitWin(winIdx,summary){
+  const idx=winIdx>=0?winIdx:0;
+  const starterTile=bestTileForPlayer(H.players[idx]);
   H.phase='play';
-  H.turn=winIdx;
+  H.turn=idx;
   H.suit=null;
-  em('suit_win',{pi:winIdx,c0,c1});
+  em('suit_win',{pi:idx,summary});
   bc();
   clearFirstTimer();
   firstPlayTimer=setTimeout(()=>{
     firstPlayTimer=null;
     if(H&&H.phase==='play'&&H.chain.length===0&&starterTile){
-      play(winIdx,starterTile,'R');
+      play(idx,starterTile,'R');
     }
   },800);
+}
+
+function checkSuitProgress(){
+  if(!H||H.phase!=='suit'||!H.suit)return;
+  const active=H.players.filter(p=>!p.off);
+  if(active.length===0)return finishSuitWin(0,'');
+  if(active.length===1){
+    const winIdx=H.players.findIndex(p=>p.id===active[0].id);
+    return finishSuitWin(winIdx,'');
+  }
+  const allPicked=active.every(p=>Boolean(H.suit.picks[p.id]));
+  if(!allPicked){
+    bc();
+    return;
+  }
+  const summary=active.map(p=>`${p.emo}${SUIT[H.suit.picks[p.id]]}`).join(' ');
+  const res=resolveMultiSuit(active,H.suit.picks);
+  if(res.draw){
+    H.suit={picks:{},draw:true};
+    em('suit_draw',{pi:0,summary});
+    bc();
+  }else{
+    finishSuitWin(res.winIdx,summary);
+  }
 }
 
 function handleSuit(pid,choice){
   if(!H||H.phase!=='suit'||!H.suit)return;
   if(!['rock','paper','scissors'].includes(choice))return;
+  const p=H.players.find(x=>x.id===pid);
+  if(!p||p.off)return;
   H.suit.picks[pid]=choice;
-  const p0=H.players[0]?.id, p1=H.players[1]?.id;
-  const c0=H.suit.picks[p0], c1=H.suit.picks[p1];
-  if(c0 && c1){
-    const res=suitWin(c0,c1);
-    if(res===0){
-      H.suit={picks:{},draw:true};
-      em('suit_draw',{pi:0});
-      bc();
-    }else{
-      finishSuitWin(res===1?0:1,c0,c1);
-    }
-  }else{
-    em('suit_wait',{pi:H.players.findIndex(p=>p.id===pid)});
-    bc();
-  }
+  checkSuitProgress();
 }
 
 function act(pid,m){
@@ -398,13 +429,10 @@ function onState(s){
   render();
 }
 
-// Event delegation di #ov supaya tombol suit & ronde berikutnya tidak pernah kehilangan klik
 $('#ov').onclick=e=>{
   const sb=e.target.closest('.suit-btn');
   if(sb&&S&&S.phase==='suit'&&S.suit){
-    const iAmP0=S.players[0]?.id===me;
-    const myDone=iAmP0?S.suit.p0Done:S.suit.p1Done;
-    if(myDone||suitChoice)return;
+    if(S.suit.myDone||suitChoice)return;
     suitChoice=sb.dataset.c;
     lastSuitKey='';
     snd('chat');
@@ -421,27 +449,28 @@ $('#ov').onclick=e=>{
 
 function renderSuit(){
   if(!S||S.phase!=='suit'||!S.suit)return;
-  const p0=S.players[0],p1=S.players[1];
-  const iAmP0=p0.id===me;
-  const myDone=iAmP0?S.suit.p0Done:S.suit.p1Done;
-  const oppDone=iAmP0?S.suit.p1Done:S.suit.p0Done;
-  const opp=iAmP0?p1:p0;
-  const key=`${myDone}|${oppDone}|${suitChoice||''}|${S.suit.draw}`;
+  const myDone=Boolean(S.suit.myDone||suitChoice);
+  const isMulti=S.players.length>2;
+  const key=`${myDone}|${S.suit.doneCount}/${S.suit.total}|${suitChoice||''}|${S.suit.draw}`;
   if(key===lastSuitKey&&$('#ov').classList.contains('on'))return;
   lastSuitKey=key;
+
+  const listHtml=S.players.filter(p=>!p.off).map(p=>{
+    const isMe=p.id===me;
+    const stText=isMe?(myDone?(suitChoice?SUIT[suitChoice]:'✅'):'⏳'):'Siap / Menunggu';
+    return `<div class="pl"><span>${p.emo}</span><b>${esc(p.name)}${isMe?' (Kamu)':''}</b><span>${stText}</span></div>`;
+  }).join('');
+
   ov(`
-    <h2>✊✌️🖐️ Suit Penentu!</h2>
-    <div class="hint">Menang suit = kartu pertamamu langsung turun!</div>
-    <div class="card" style="width:100%">
-      <div class="pl"><span>${emo}</span><b>${esc(name)} (Kamu)</b><span>${myDone?(suitChoice?SUIT[suitChoice]:'✅'):'⏳'}</span></div>
-      <div class="pl"><span>${opp.emo}</span><b>${esc(opp.name)}</b><span>${oppDone?'Sudah pilih ✅':'🤔'}</span></div>
-    </div>
+    <h2>${isMulti?'🙌 Hompimpa / Suit!':'✊✌️🖐️ Suit Penentu!'}</h2>
+    <div class="hint">Menang suit = kartu pertamamu langsung turun! (${S.suit.doneCount}/${S.suit.total} sudah pilih)</div>
+    <div class="card" style="width:100%">${listHtml}</div>
     <div class="suit-btns">
       <button type="button" class="suit-btn ${suitChoice==='rock'?'picked':''}" data-c="rock" ${myDone?'disabled':''}>✊<small>Batu</small></button>
       <button type="button" class="suit-btn ${suitChoice==='paper'?'picked':''}" data-c="paper" ${myDone?'disabled':''}>🖐️<small>Kertas</small></button>
       <button type="button" class="suit-btn ${suitChoice==='scissors'?'picked':''}" data-c="scissors" ${myDone?'disabled':''}>✌️<small>Gunting</small></button>
     </div>
-    <div class="hint">${myDone?'Menunggu lawan memilih…':'Pilih salah satu di atas'}</div>
+    <div class="hint">${myDone?'Menunggu pemain lain memilih…':'Pilih salah satu di atas'}</div>
   `);
 }
 
@@ -455,14 +484,14 @@ function fx(ev){
   else if(ev.k=='suit_draw'){
     suitChoice=null;lastSuitKey='';
     snd('no');
-    toast('Seri! Suit ulang ya 🤝');
+    toast(`Seri${ev.summary?' ('+ev.summary+')':''}! Suit ulang ya 🤝`);
     renderSuit();
   }
   else if(ev.k=='suit_win'){
     suitChoice=null;lastSuitKey='';
     ov(0);
     snd('win');
-    const detail=(ev.c0&&ev.c1)?` (${SUIT[ev.c0]} vs ${SUIT[ev.c1]})`:'';
+    const detail=ev.summary?` (${ev.summary})`:'';
     toast(`${nm} menang suit${detail}! Kartu pertama turun 🎉`);
   }
   else if(ev.k=='deal'){
@@ -485,7 +514,7 @@ function fx(ev){
     if(w>=0&&S.players[w].id==me)'🎉🏆🥳✨'.match(/./gu).forEach(float);
     setTimeout(()=>ov(1),900);
   }
-  if(ev.k!='suit'&&ev.k!='suit_draw'&&ev.k!='suit_wait'&&S.players[S.turn]&&S.players[S.turn].id==me&&S.phase=='play'&&ev.k!='end'){
+  if(ev.k!='suit'&&ev.k!='suit_draw'&&S.players[S.turn]&&S.players[S.turn].id==me&&S.phase=='play'&&ev.k!='end'){
     setTimeout(()=>{snd('turn');toast('Giliranmu! 👉')},200);
   }
 }
@@ -529,18 +558,46 @@ function render(){
   }
 }
 
+/* Rantai berkelok (snake) dengan konektor antar ubin & belokan kanan/kiri */
 function board(){
-  const el=$('#board'),W=Math.max(200,Math.min(el.clientWidth,480)-24),u=+getComputedStyle(document.documentElement).getPropertyValue('--h').replace('px','')||28;
+  const el=$('#board');
+  if(!S.chain||!S.chain.length){
+    el.innerHTML=`<div class="hint">Meja kosong… 🎲</div>`;
+    return;
+  }
+  const W=Math.max(200,Math.min(el.clientWidth,480)-28);
+  const u=+getComputedStyle(document.documentElement).getPropertyValue('--h').replace('px','')||26;
   const rows=[[]];let w=0;
+
   S.chain.forEach((t,i)=>{
-    const tw=(t[0]==t[1]?u:u*2)+6;
+    const tw=(t[0]==t[1]?u:u*2)+8;
     if(w+tw>W&&rows.at(-1).length){rows.push([]);w=0}
     rows.at(-1).push([t,i]);w+=tw;
   });
-  el.innerHTML=rows.map((r,ri)=>`<div class="row">${(ri%2?r.slice().reverse():r).map(([t,i])=>{
-    const d=t[0]==t[1],a=ri%2?t[1]:t[0],b=ri%2?t[0]:t[1];
-    return `<span data-i="${i}">${tile(a,b,d)}</span>`;
-  }).join('')}</div>`).join('')||`<div class="hint">Meja kosong… 🎲</div>`;
+
+  const parts=[];
+  rows.forEach((r,ri)=>{
+    const rev=ri%2===1;
+    const ordered=rev?r.slice().reverse():r;
+    const rowHtml=ordered.map(([t,i])=>{
+      const d=t[0]==t[1];
+      const a=rev?t[1]:t[0];
+      const b=rev?t[0]:t[1];
+      return `<span data-i="${i}">${tile(a,b,d)}</span>`;
+    }).join('');
+    parts.push(`<div class="row ${rev?'rev':''}">${rowHtml}</div>`);
+
+    // Tambahkan penghubung vertikal ke baris berikutnya di sisi kanan (jika baris genap) atau kiri (jika baris ganjil)
+    if(ri<rows.length-1){
+      const turnSide=rev?'l':'r';
+      const bridgeTile=rows[ri+1][0]?.[0];
+      const bridgeHtml=bridgeTile?tile(bridgeTile[0],bridgeTile[1],true):'';
+      parts.push(`<div class="turn-v ${turnSide}">${bridgeHtml}</div>`);
+    }
+  });
+
+  el.innerHTML=`<div class="chain-wrap">${parts.join('')}</div>`;
+
   const ev=S.ev;
   if(ev&&ev.k=='play'&&fly&&fly.tile){
     const idx=ev.tile,sp=[...el.querySelectorAll('.t')].find(x=>{const a=+x.dataset.a,b=+x.dataset.b;return(a==idx[0]&&b==idx[1])||(a==idx[1]&&b==idx[0])});
