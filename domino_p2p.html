@@ -57,7 +57,7 @@
     .domino-tile {
       background: linear-gradient(145deg, #ffffff 0%, var(--ivory) 80%, #ebe5d8 100%);
       border-radius: 7px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 0 var(--ivory-shadow);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 2px 0 var(--ivory-shadow);
       border: 1px solid #cbd5e1;
       position: relative;
       transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, opacity 0.2s ease;
@@ -78,22 +78,22 @@
       flex-direction: row;
     }
 
-    /* Ukuran kartu di meja arena (lebih ringkas agar muat hingga 28 kartu) */
+    /* Ukuran kartu di meja arena (disesuaikan untuk ular S-curve mobile) */
     .board-tile.vertical {
-      width: 32px;
-      height: 62px;
+      width: 28px;
+      height: 54px;
       border-radius: 5px;
     }
 
     .board-tile.horizontal {
-      width: 62px;
-      height: 32px;
+      width: 54px;
+      height: 28px;
       border-radius: 5px;
     }
 
     @media (min-width: 640px) {
-      .board-tile.vertical { width: 38px; height: 74px; }
-      .board-tile.horizontal { width: 74px; height: 38px; }
+      .board-tile.vertical { width: 34px; height: 66px; }
+      .board-tile.horizontal { width: 66px; height: 34px; }
     }
 
     /* Garis pembagi tengah domino */
@@ -121,7 +121,7 @@
     }
 
     .board-tile .pip-half {
-      padding: 3px;
+      padding: 2.5px;
     }
 
     .pip {
@@ -132,18 +132,22 @@
     }
 
     .board-tile .pip {
-      width: 5.5px;
-      height: 5.5px;
+      width: 4.8px;
+      height: 4.8px;
+    }
+
+    @media (min-width: 640px) {
+      .board-tile .pip { width: 5.5px; height: 5.5px; }
     }
 
     /* Warna Pip Klasik Asia/Indonesia agar kontras & cepat dibaca */
-    .pip-1 { background: #dc2626; width: 9px; height: 9px; } /* Merah besar untuk 1 */
-    .board-tile .pip-1 { width: 7px; height: 7px; }
+    .pip-1 { background: #dc2626; width: 9px; height: 9px; }
+    .board-tile .pip-1 { width: 6.2px; height: 6.2px; }
     .pip-2 { background: #1e293b; }
     .pip-3 { background: #1e293b; }
-    .pip-4 { background: #dc2626; } /* Merah untuk 4 */
+    .pip-4 { background: #dc2626; }
     .pip-5 { background: #1e293b; }
-    .pip-6 { background: #0284c7; } /* Biru/Hitam tegas untuk 6 */
+    .pip-6 { background: #0284c7; }
 
     /* Kartu di tangan pemain */
     .hand-card {
@@ -174,8 +178,17 @@
       100% { transform: scale(1); opacity: 1; }
     }
     .tile-just-placed {
-      animation: tileDrop 0.32s cubic-bezier(0.22, 1, 0.36, 1);
-      box-shadow: 0 0 0 2.5px #38bdf8, 0 4px 12px rgba(56, 189, 248, 0.5);
+      animation: tileDrop 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+      box-shadow: 0 0 0 2.5px #38bdf8, 0 0 14px rgba(56, 189, 248, 0.65);
+    }
+
+    /* Indikator ujung rantai yang aktif */
+    @keyframes endGlow {
+      0%, 100% { box-shadow: 0 0 0 1.5px rgba(251, 191, 36, 0.55), 0 4px 8px rgba(0, 0, 0, 0.45); }
+      50% { box-shadow: 0 0 0 2.5px rgba(251, 191, 36, 0.95), 0 0 12px rgba(251, 191, 36, 0.5); }
+    }
+    .board-end-glow {
+      animation: endGlow 2s infinite ease-in-out;
     }
 
     /* Animasi giliran aktif pada avatar */
@@ -345,7 +358,10 @@
       <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300 bg-emerald-950/50 border border-emerald-800/40 rounded-xl px-3 py-2 mb-4">
         <span>👥 Pemain: <strong id="waiting-player-count" class="text-amber-300">1/8</strong></span>
         <span>🏆 Target: <strong id="waiting-target-score" class="text-amber-300">100 Poin</strong></span>
-        <span>🃏 Boneyard: <strong id="waiting-boneyard" class="text-emerald-300">Aktif</strong></span>
+        <span class="inline-flex items-center gap-1">
+          <svg class="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 16 24" fill="none"><rect x="1.5" y="1.5" width="13" height="21" rx="2.5" fill="#fdfbf7" stroke="#34d399" stroke-width="1.5"/><line x1="3" y1="12" x2="13" y2="12" stroke="#64748b" stroke-width="1.2"/><circle cx="8" cy="6.5" r="1.6" fill="#dc2626"/><circle cx="5.5" cy="17.5" r="1.4" fill="#1e293b"/><circle cx="10.5" cy="17.5" r="1.4" fill="#1e293b"/></svg>
+          Boneyard: <strong id="waiting-boneyard" class="text-emerald-300">Aktif</strong>
+        </span>
       </div>
 
       <!-- Daftar Pemain Terkoneksi -->
@@ -399,7 +415,14 @@
       <!-- Indikator Boneyard (Tumpukan Ambil) & Status -->
       <div class="flex items-center gap-2">
         <div id="hud-boneyard-box" class="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-950/90 border border-emerald-600/40">
-          <span class="text-sm">🁣</span>
+          <!-- Ikon Kartu Domino SVG -->
+          <svg class="w-3.5 h-5 shrink-0" viewBox="0 0 16 24" fill="none">
+            <rect x="1" y="1" width="14" height="22" rx="2.5" fill="#fdfbf7" stroke="#fbbf24" stroke-width="1.5"/>
+            <line x1="3" y1="12" x2="13" y2="12" stroke="#64748b" stroke-width="1.2"/>
+            <circle cx="8" cy="6.5" r="1.6" fill="#dc2626"/>
+            <circle cx="5.5" cy="17.5" r="1.4" fill="#1e293b"/>
+            <circle cx="10.5" cy="17.5" r="1.4" fill="#1e293b"/>
+          </svg>
           <div class="leading-none">
             <div class="text-[9px] text-emerald-300 uppercase font-bold">Sisa</div>
             <div id="hud-boneyard-count" class="text-xs sm:text-sm font-extrabold text-white">0</div>
@@ -422,17 +445,23 @@
       <!-- Avatar lawan di-render dinamis -->
     </section>
 
-    <!-- CENTER ARENA: Papan Rantai Domino (Scrollable / Auto-Snake) -->
-    <main id="board-wrapper" class="flex-1 w-full relative overflow-auto flex items-center justify-center p-3 no-scrollbar">
+    <!-- CENTER ARENA: Papan Rantai Domino Ular S-Curve Presisi -->
+    <main id="board-wrapper" class="flex-1 w-full relative overflow-hidden flex items-center justify-center p-2">
       <!-- Panduan Kosong / Awal -->
-      <div id="board-empty-hint" class="text-center text-emerald-200/50 pointer-events-none">
-        <div class="text-3xl mb-1">🁢</div>
+      <div id="board-empty-hint" class="text-center text-emerald-200/50 pointer-events-none flex flex-col items-center">
+        <svg class="w-8 h-12 mb-1.5 opacity-60" viewBox="0 0 16 24" fill="none">
+          <rect x="1" y="1" width="14" height="22" rx="2.5" fill="#fdfbf7" stroke="#34d399" stroke-width="1.5"/>
+          <line x1="3" y1="12" x2="13" y2="12" stroke="#64748b" stroke-width="1.2"/>
+          <circle cx="8" cy="6.5" r="1.6" fill="#dc2626"/>
+          <circle cx="5.5" cy="17.5" r="1.4" fill="#1e293b"/>
+          <circle cx="10.5" cy="17.5" r="1.4" fill="#1e293b"/>
+        </svg>
         <div class="text-xs font-semibold">Meja siap! Menunggu kartu pertama...</div>
       </div>
 
-      <!-- Container Ular Kartu Domino -->
-      <div id="board-snake-container" class="flex flex-wrap items-center justify-center gap-1 max-w-full sm:max-w-3xl transition-all duration-300 py-4 px-2">
-        <!-- Kartu meja di-render dinamis -->
+      <!-- Container Ular Kartu Domino (S-Curve Canvas-Like Positioning) -->
+      <div id="board-snake-container" class="relative transition-transform duration-300 origin-center">
+        <!-- Kartu meja di-render dinamis dengan koordinat S-curve presisi -->
       </div>
     </main>
 
@@ -452,7 +481,13 @@
       <!-- Tombol Ambil Kartu (Boneyard) atau Lewat (Pass) -->
       <div id="no-move-controls" class="hidden flex items-center gap-2">
         <button id="btn-draw-boneyard" type="button" class="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-500 hover:from-sky-400 hover:to-blue-400 text-white font-extrabold text-xs sm:text-sm shadow-lg transition active:scale-95 flex items-center gap-1.5">
-          <span>🁣 Ambil Kartu Sisa</span>
+          <svg class="w-3.5 h-5 shrink-0" viewBox="0 0 16 24" fill="none">
+            <rect x="1" y="1" width="14" height="22" rx="2.5" fill="#fdfbf7" stroke="#0284c7" stroke-width="1.5"/>
+            <line x1="3" y1="12" x2="13" y2="12" stroke="#64748b" stroke-width="1.2"/>
+            <circle cx="8" cy="6.5" r="1.6" fill="#dc2626"/>
+            <circle cx="8" cy="17.5" r="1.6" fill="#1e293b"/>
+          </svg>
+          <span>Ambil Kartu Sisa</span>
         </button>
         <button id="btn-pass-turn" type="button" class="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-500 hover:from-rose-500 hover:to-red-400 text-white font-extrabold text-xs sm:text-sm shadow-lg transition active:scale-95 flex items-center gap-1.5">
           <span>⏭️ Lewat (Pass)</span>
@@ -569,6 +604,7 @@
      * ============================================================================
      * DOMINO NUSANTARA P2P (2-8 PEMAIN) — CORE ENGINE
      * Arsitektur: Host-Authoritative Peer-to-Peer via PeerJS + Web Audio API
+     * Fitur Papan: Auto-Snaking S-Curve Layout + Auto-Fit Scale untuk Layar Mobile
      * ============================================================================
      */
 
@@ -594,7 +630,6 @@
         if (!ctx) return;
 
         const now = ctx.currentTime;
-        // Resonansi batu/akrilik padat
         const osc1 = ctx.createOscillator();
         const osc2 = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -784,7 +819,7 @@
       inner.className = `px-6 py-3 rounded-2xl bg-slate-950/90 border-2 ${borderColor} shadow-2xl text-center backdrop-blur-md`;
       el.classList.remove('hidden');
       el.classList.remove('banner-anim');
-      void el.offsetWidth; // trigger reflow
+      void el.offsetWidth;
       el.classList.add('banner-anim');
 
       clearTimeout(bannerTimeout);
@@ -834,6 +869,19 @@
         .replace(/"/g, '&quot;');
     }
 
+    // Helper SVG Ikon Kartu Domino Mini (Menggantikan Unicode 🁣 agar tampil sempurna di semua HP)
+    function getMiniDominoSvg(strokeColor = '#fbbf24', sizeClass = 'w-3 h-4') {
+      return `
+        <svg class="${sizeClass} inline-block shrink-0" viewBox="0 0 16 24" fill="none">
+          <rect x="1.2" y="1.2" width="13.6" height="21.6" rx="2.5" fill="#fdfbf7" stroke="${strokeColor}" stroke-width="1.8"/>
+          <line x1="3.2" y1="12" x2="12.8" y2="12" stroke="#64748b" stroke-width="1.3"/>
+          <circle cx="8" cy="6.5" r="1.7" fill="#dc2626"/>
+          <circle cx="5.5" cy="17.5" r="1.4" fill="#1e293b"/>
+          <circle cx="10.5" cy="17.5" r="1.4" fill="#1e293b"/>
+        </svg>
+      `;
+    }
+
     // ==================== 3. STATE & KONFIGURASI P2P ====================
     const AVATARS = ['😎', '🤠', '🦊', '🐯', '🐼', '🦁', '🐸', '🤖', '👑', '🥷', '🧙‍♂️', '🐲'];
     const BOT_NAMES = ['Bot Budi', 'Bot Siti', 'Bot Udin', 'Bot Rina', 'Bot Joko', 'Bot Dewi', 'Bot Agus'];
@@ -846,20 +894,19 @@
       isHost: false,
       roomCode: '',
       peer: null,
-      connections: {}, // peerId -> DataConnection (untuk Host)
-      hostConn: null,  // DataConnection ke Host (untuk Guest)
+      connections: {},
+      hostConn: null,
       selectedCardId: null,
       botTimer: null,
 
-      // Game State (Otoritas di Host, disinkronkan ke semua pemain)
       game: {
-        status: 'LOBBY', // LOBBY | PLAYING | ROUND_OVER | MATCH_OVER
+        status: 'LOBBY',
         round: 1,
         targetScore: 100,
         allowBoneyard: true,
-        players: [], // { id, name, avatar, isBot, isHost, connected, hand: [], score: 0 }
-        board: [],   // [{ id, left, right, isDouble, placedBy }]
-        boneyard: [], // [{ id, left, right }]
+        players: [],
+        board: [],
+        boneyard: [],
         turnIndex: 0,
         consecutivePasses: 0,
         lastPlacedTileId: null
@@ -879,7 +926,6 @@
           });
         }
       }
-      // Fisher-Yates Shuffle
       for (let i = tiles.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [tiles[i], tiles[j]] = [tiles[j], tiles[i]];
@@ -887,12 +933,11 @@
       return tiles;
     }
 
-    // Jumlah kartu per pemain sesuai jumlah total pemain (2 - 8 pemain)
     function getCardsPerPlayer(playerCount) {
       if (playerCount <= 4) return 7;
       if (playerCount === 5) return 5;
       if (playerCount <= 7) return 4;
-      return 3; // 8 pemain -> 3 kartu (total 24 kartu, sisa 4 boneyard)
+      return 3;
     }
 
     function getBoardEnds(board) {
@@ -984,7 +1029,7 @@
         btn.disabled = false;
         btn.innerHTML = '<span>🚀 Buat Room Baru</span>';
         if (err.type === 'unavailable-id') {
-          createRoomAsHost(); // Coba kode baru otomatis jika bentrok
+          createRoomAsHost();
         } else {
           showToast('Gagal koneksi P2P: ' + err.type, 'error');
         }
@@ -1010,7 +1055,6 @@
             renderWaitingRoom();
             showToast(`${p.name} keluar dari lobi`, 'warning');
           } else {
-            // Jika keluar saat game berlangsung, otomatis digantikan Bot AI agar permainan 2-8 pemain tidak macet
             p.connected = false;
             p.isBot = true;
             p.name = p.name + ' (Bot)';
@@ -1127,7 +1171,6 @@
       else if (name === 'pop') SoundFX.playPop();
     }
 
-    // Handler pesan yang diterima HOST
     function handleHostReceivedMessage(conn, msg) {
       if (msg.type === 'JOIN_REQUEST') {
         if (AppState.game.status !== 'LOBBY') {
@@ -1165,13 +1208,11 @@
         hostProcessPassTurn(conn.peer);
       }
       else if (msg.type === 'CHAT_EVENT') {
-        // Teruskan chat/emoji ke semua pemain termasuk Host sendiri
         handleIncomingChatEvent(msg);
         broadcastMessage(msg);
       }
     }
 
-    // Handler pesan yang diterima GUEST
     function handleGuestReceivedMessage(msg) {
       if (msg.type === 'JOIN_ACCEPTED') {
         switchScreen('waiting');
@@ -1284,7 +1325,6 @@
       AppState.game.status = 'PLAYING';
       AppState.selectedCardId = null;
 
-      // Tentukan pemain pertama berdasarkan pemilik balak tertinggi (6-6 -> 0-0), lalu kartu tertinggi
       let starterIdx = 0;
       let bestScore = -1;
       AppState.game.players.forEach((p, idx) => {
@@ -1312,7 +1352,6 @@
       checkAndTriggerBotTurn();
     }
 
-    // Proses meletakkan kartu ke meja (Host)
     function hostProcessPlayTile(playerId, tileId, preferredSide) {
       if (AppState.game.status !== 'PLAYING') return;
       const currentPlayer = AppState.game.players[AppState.game.turnIndex];
@@ -1325,7 +1364,6 @@
       const validity = canPlayTile(tile, AppState.game.board);
       if (!validity.left && !validity.right) return;
 
-      // Hapus dari tangan pemain
       currentPlayer.hand.splice(tileIdx, 1);
       AppState.game.consecutivePasses = 0;
       AppState.game.lastPlacedTileId = tile.id;
@@ -1345,13 +1383,11 @@
         if (side === 'right' && !validity.right) side = 'left';
 
         if (side === 'left') {
-          // Ujung kanan kartu baru harus menempel ke ends.left
           const oriented = (tile.right === ends.left)
             ? { ...tile, left: tile.left, right: tile.right }
             : { ...tile, left: tile.right, right: tile.left };
           AppState.game.board.unshift({ ...oriented, placedBy: currentPlayer.name });
         } else {
-          // Ujung kiri kartu baru harus menempel ke ends.right
           const oriented = (tile.left === ends.right)
             ? { ...tile, left: tile.left, right: tile.right }
             : { ...tile, left: tile.right, right: tile.left };
@@ -1361,17 +1397,14 @@
 
       broadcastSound('clack');
 
-      // Cek apakah kartu pemain HABIS (DOMINO!)
       if (currentPlayer.hand.length === 0) {
         hostConcludeRound('DOMINO', currentPlayer);
         return;
       }
 
-      // Lanjut giliran berikutnya
       advanceTurn();
     }
 
-    // Proses ambil kartu dari Boneyard (Host)
     function hostProcessDrawBoneyard(playerId) {
       if (AppState.game.status !== 'PLAYING') return;
       const currentPlayer = AppState.game.players[AppState.game.turnIndex];
@@ -1389,13 +1422,11 @@
       checkAndTriggerBotTurn();
     }
 
-    // Proses Lewat / Pass (Host)
     function hostProcessPassTurn(playerId) {
       if (AppState.game.status !== 'PLAYING') return;
       const currentPlayer = AppState.game.players[AppState.game.turnIndex];
       if (!currentPlayer || currentPlayer.id !== playerId) return;
 
-      // Tidak boleh pass jika punya kartu jalan atau boneyard masih ada
       if (hasAnyValidMove(currentPlayer.hand, AppState.game.board)) return;
       if (AppState.game.allowBoneyard && AppState.game.boneyard.length > 0) return;
 
@@ -1403,7 +1434,6 @@
       broadcastSound('pass');
       broadcastBanner('LEWAT!', `${currentPlayer.name} tidak punya kartu jalan`, 'border-rose-500');
 
-      // Jika semua pemain berturut-turut lewat -> GAPLE (Terkunci)!
       if (AppState.game.consecutivePasses >= AppState.game.players.length) {
         hostConcludeRound('GAPLE', null);
         return;
@@ -1425,13 +1455,11 @@
       checkAndTriggerBotTurn();
     }
 
-    // Penyelesaian Ronde (Menang Domino atau Gaple)
     function hostConcludeRound(winReason, dominoWinner) {
       clearTimeout(AppState.botTimer);
 
       let winner = dominoWinner;
       if (winReason === 'GAPLE') {
-        // Pemenang Gaple = total pip terkecil di tangan; jika seri, jumlah kartu tersedikit
         let minPips = Infinity;
         let minCards = Infinity;
         AppState.game.players.forEach(p => {
@@ -1444,14 +1472,13 @@
         });
       }
 
-      // Hitung poin yang didapat pemenang dari total sisa pip lawan
       let pointsEarned = 0;
       AppState.game.players.forEach(p => {
         if (p.id !== winner.id) {
           pointsEarned += calculatePips(p.hand);
         }
       });
-      if (pointsEarned === 0) pointsEarned = 10; // Bonus minimal jika sama-sama 0
+      if (pointsEarned === 0) pointsEarned = 10;
 
       winner.score += pointsEarned;
       AppState.game.lastRoundSummary = {
@@ -1479,7 +1506,6 @@
       showRoundResultModal();
     }
 
-    // Kecerdasan Buatan (Bot AI) untuk Mode Solo/Pengisi Kursi
     function checkAndTriggerBotTurn() {
       if (!AppState.isHost || AppState.game.status !== 'PLAYING') return;
       clearTimeout(AppState.botTimer);
@@ -1492,7 +1518,6 @@
         const bot = AppState.game.players[AppState.game.turnIndex];
         if (!bot || !bot.isBot) return;
 
-        // Cari semua langkah valid
         const validMoves = [];
         bot.hand.forEach(tile => {
           const v = canPlayTile(tile, AppState.game.board);
@@ -1501,7 +1526,6 @@
         });
 
         if (validMoves.length > 0) {
-          // Bot memilih kartu dengan nilai tertinggi agar sisa pip di tangan kecil
           validMoves.sort((a, b) => b.weight - a.weight);
           const chosen = validMoves[0];
           hostProcessPlayTile(bot.id, chosen.tile.id, chosen.side);
@@ -1554,14 +1578,12 @@
         return;
       }
 
-      // Jika meja masih kosong, langsung taruh
       if (AppState.game.board.length === 0) {
         triggerPlayTile(tile.id, 'left');
         return;
       }
 
       const ends = getBoardEnds(AppState.game.board);
-      // Jika kedua ujung bisa ditempel DAN angkanya berbeda, beri pilihan Kiri/Kanan
       if (validity.left && validity.right && ends.left !== ends.right) {
         AppState.selectedCardId = tile.id;
         document.getElementById('left-end-val').textContent = ends.left;
@@ -1581,7 +1603,7 @@
         senderId: AppState.myId,
         senderName: AppState.myName,
         senderAvatar: AppState.myAvatar,
-        kind: kind, // 'emoji' | 'text'
+        kind: kind,
         content: content
       };
 
@@ -1606,7 +1628,6 @@
     function handleIncomingChatEvent(msg) {
       SoundFX.playPop();
 
-      // 1. Tambahkan ke riwayat laci chat
       const list = document.getElementById('chat-messages-list');
       const item = document.createElement('div');
       item.className = 'bg-slate-950/70 rounded-lg px-2 py-1 border border-slate-800/80';
@@ -1618,7 +1639,6 @@
         document.getElementById('chat-unread-dot').classList.remove('hidden');
       }
 
-      // 2. Tampilkan Floating Bubble tepat di atas avatar pengirim di semua layar
       let slot = null;
       if (msg.senderId === AppState.myId) {
         slot = document.getElementById('local-bubble-slot');
@@ -1643,7 +1663,7 @@
       }
     }
 
-    // ==================== 10. RENDERING UI & KARTU DOMINO ====================
+    // ==================== 10. RENDERING UI & PAPAN ULAR S-CURVE ====================
     function switchScreen(screenName) {
       ['lobby', 'waiting', 'game'].forEach(s => {
         const el = document.getElementById(`screen-${s}`);
@@ -1657,7 +1677,6 @@
       });
     }
 
-    // Posisi 9 titik (3x3 grid) untuk angka 0 - 6
     const PIP_PATTERNS = {
       0: [],
       1: [4],
@@ -1681,14 +1700,19 @@
       return `<div class="pip-half">${cells}</div>`;
     }
 
-    function createDominoTileElement(tile, orientation = 'vertical', extraClasses = '') {
+    /**
+     * Membuat elemen ubin domino dengan nilai sisi pertama (firstVal) dan kedua (secondVal).
+     * Jika vertical: firstVal = atas, secondVal = bawah.
+     * Jika horizontal: firstVal = kiri, secondVal = kanan.
+     */
+    function createDominoTileElement(firstVal, secondVal, orientation = 'vertical', extraClasses = '') {
       const div = document.createElement('div');
       div.className = `domino-tile ${orientation} ${extraClasses}`;
       const dividerClass = orientation === 'vertical' ? 'domino-divider-v' : 'domino-divider-h';
       div.innerHTML = `
-        ${renderPipHalfHtml(tile.left)}
+        ${renderPipHalfHtml(firstVal)}
         <div class="${dividerClass}"></div>
-        ${renderPipHalfHtml(tile.right)}
+        ${renderPipHalfHtml(secondVal)}
       `;
       return div;
     }
@@ -1760,7 +1784,7 @@
       const activePlayer = AppState.game.players[AppState.game.turnIndex];
 
       AppState.game.players.forEach(p => {
-        if (p.id === AppState.myId) return; // Pemain lokal dirender di dock bawah
+        if (p.id === AppState.myId) return;
 
         const isTurn = activePlayer && activePlayer.id === p.id && AppState.game.status === 'PLAYING';
         const pill = document.createElement('div');
@@ -1771,7 +1795,7 @@
           <div class="leading-tight">
             <div class="text-[11px] font-extrabold text-white max-w-[74px] truncate">${escapeHtml(p.name)}</div>
             <div class="flex items-center gap-1.5 text-[10px]">
-              <span class="text-amber-300 font-bold">🁣 ${p.hand.length}</span>
+              <span class="text-amber-300 font-bold inline-flex items-center gap-1">${getMiniDominoSvg('#fbbf24', 'w-2.5 h-3.5')} ${p.hand.length}</span>
               <span class="text-slate-400">• ${p.score}p</span>
             </div>
           </div>
@@ -1780,25 +1804,149 @@
       });
     }
 
+    /**
+     * ALGORITMA PAPAN ULAR S-CURVE (MENGULAR TANPA TERPOTONG & MUAT DI HP)
+     * - Kartu berbaris dari kiri ke kanan hingga mendekati batas lebar arena HP.
+     * - Saat menyentuh ujung bingkai, rantai otomatis berbelok ke bawah secara vertikal
+     *   lalu berbalik arah dari kanan ke kiri, dan seterusnya (S-curve), sehingga setiap
+     *   angka ujung domino selalu bersentuhan secara fisik.
+     * - Jika rantai sangat panjang (hingga 28 kartu), skala otomatis mengecil agar pas 100% di layar.
+     */
     function renderBoardChain() {
       const board = AppState.game.board;
       const hint = document.getElementById('board-empty-hint');
       const container = document.getElementById('board-snake-container');
+      const wrapper = document.getElementById('board-wrapper');
 
       if (!board || board.length === 0) {
         hint.classList.remove('hidden');
         container.innerHTML = '';
+        container.style.width = '0px';
+        container.style.height = '0px';
+        container.style.transform = 'scale(1)';
         return;
       }
 
       hint.classList.add('hidden');
       container.innerHTML = '';
 
-      board.forEach((tile) => {
-        // Balak (double) diletakkan vertikal melintang agar klasik & hemat ruang horizontal
-        const orientation = tile.isDouble ? 'vertical' : 'horizontal';
-        const isNewest = tile.id === AppState.game.lastPlacedTileId ? 'tile-just-placed' : '';
-        const el = createDominoTileElement(tile, orientation, `board-tile ${isNewest}`);
+      const isDesktop = window.innerWidth >= 640;
+      const LONG = isDesktop ? 66 : 54;
+      const SHORT = isDesktop ? 34 : 28;
+      const GAP = 3;
+
+      const availW = Math.max(240, (wrapper.clientWidth || window.innerWidth) - 24);
+      const availH = Math.max(150, (wrapper.clientHeight || 240) - 16);
+
+      // Hitung tata letak koordinat S-curve untuk setiap kartu dalam rantai
+      const placed = [];
+      let dir = 1; // 1 = kiri ke kanan, -1 = kanan ke kiri
+      let cursorX = 0;
+      let rowCenterY = LONG / 2;
+      let justTurned = false;
+
+      for (let i = 0; i < board.length; i++) {
+        const tile = board[i];
+        const isLastIndex = (i === board.length - 1);
+
+        // Cek apakah kartu berikutnya (jika non-double) akan melebihi batas lebar bingkai
+        const nextTileW = tile.isDouble ? SHORT : LONG;
+        const projectedEdge = dir === 1 ? (cursorX + nextTileW) : (cursorX - nextTileW);
+        const hitsWall = (dir === 1 && projectedEdge > availW) || (dir === -1 && projectedEdge < 0);
+
+        if (hitsWall && !justTurned && i > 0) {
+          // BELOK KE BAWAH: Kartu ini dipasang vertikal sebagai penghubung antar baris
+          const x = dir === 1 ? (cursorX - SHORT) : cursorX;
+          const y = rowCenterY + (LONG / 2) + GAP;
+
+          // Dalam belokan ke bawah: sisi atas (tile.left) menyambung baris atas, sisi bawah (tile.right) menyambung baris bawah
+          placed.push({
+            tile,
+            orientation: 'vertical',
+            firstVal: tile.left,
+            secondVal: tile.right,
+            x,
+            y,
+            w: SHORT,
+            h: LONG,
+            isEnd: i === 0 || isLastIndex
+          });
+
+          // Pindah ke baris baru di bawahnya dan balik arah horizontal
+          rowCenterY = y + LONG + GAP + (LONG / 2);
+          dir *= -1;
+          cursorX = dir === 1 ? x : (x + SHORT);
+          justTurned = true;
+        } else {
+          justTurned = false;
+          if (tile.isDouble) {
+            // Kartu balak berdiri vertikal melintang di jalur horizontal
+            const x = dir === 1 ? cursorX : (cursorX - SHORT);
+            const y = rowCenterY - (LONG / 2);
+            placed.push({
+              tile,
+              orientation: 'vertical',
+              firstVal: tile.left,
+              secondVal: tile.right,
+              x,
+              y,
+              w: SHORT,
+              h: LONG,
+              isEnd: i === 0 || isLastIndex
+            });
+            cursorX += dir * (SHORT + GAP);
+          } else {
+            // Kartu biasa rebahan horizontal mengikuti arah aliran ular
+            const x = dir === 1 ? cursorX : (cursorX - LONG);
+            const y = rowCenterY - (SHORT / 2);
+            // Jika bergerak kanan-ke-kiri (dir === -1), balik tampilan kiri-kanan agar ujungnya menyambung benar!
+            const firstVal = dir === 1 ? tile.left : tile.right;
+            const secondVal = dir === 1 ? tile.right : tile.left;
+
+            placed.push({
+              tile,
+              orientation: 'horizontal',
+              firstVal,
+              secondVal,
+              x,
+              y,
+              w: LONG,
+              h: SHORT,
+              isEnd: i === 0 || isLastIndex
+            });
+            cursorX += dir * (LONG + GAP);
+          }
+        }
+      }
+
+      // Hitung bounding box total ular agar selalu terpusat & otomatis mengecil jika baris sangat banyak
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      placed.forEach(p => {
+        if (p.x < minX) minX = p.x;
+        if (p.x + p.w > maxX) maxX = p.x + p.w;
+        if (p.y < minY) minY = p.y;
+        if (p.y + p.h > maxY) maxY = p.y + p.h;
+      });
+
+      const totalW = Math.max(1, maxX - minX);
+      const totalH = Math.max(1, maxY - minY);
+
+      container.style.width = `${totalW}px`;
+      container.style.height = `${totalH}px`;
+
+      // Auto-scale mulus jika rantai mencapai 20-28 kartu sehingga 100% muat tanpa terpotong
+      const scaleX = totalW > availW ? (availW / totalW) : 1;
+      const scaleY = totalH > availH ? (availH / totalH) : 1;
+      const finalScale = Math.max(0.52, Math.min(1, scaleX, scaleY));
+      container.style.transform = `scale(${finalScale})`;
+
+      placed.forEach(p => {
+        const isNewest = p.tile.id === AppState.game.lastPlacedTileId ? 'tile-just-placed' : '';
+        const isEndGlow = (p.isEnd && !isNewest && board.length > 1) ? 'board-end-glow' : '';
+        const el = createDominoTileElement(p.firstVal, p.secondVal, p.orientation, `board-tile ${isNewest} ${isEndGlow}`);
+        el.style.position = 'absolute';
+        el.style.left = `${p.x - minX}px`;
+        el.style.top = `${p.y - minY}px`;
         container.appendChild(el);
       });
     }
@@ -1833,7 +1981,7 @@
         }
         if (isSelected) stateClass += ' selected';
 
-        const cardEl = createDominoTileElement(tile, 'vertical', stateClass);
+        const cardEl = createDominoTileElement(tile.left, tile.right, 'vertical', stateClass);
         cardEl.onclick = () => handleHandCardClick(tile);
         handContainer.appendChild(cardEl);
       });
@@ -1993,10 +2141,15 @@
 
     // ==================== 12. EVENT LISTENERS UI ====================
     document.addEventListener('DOMContentLoaded', () => {
-      // Default nama acak ramah
       document.getElementById('input-player-name').value = 'Pemain ' + Math.floor(10 + Math.random() * 89);
 
-      // Ganti Avatar
+      // Responsif otomatis merapikan papan ular saat layar HP diputar (Portrait <-> Landscape)
+      window.addEventListener('resize', () => {
+        if (AppState.game.status === 'PLAYING') {
+          renderBoardChain();
+        }
+      });
+
       let avatarIdx = 0;
       document.getElementById('btn-cycle-avatar').onclick = () => {
         avatarIdx = (avatarIdx + 1) % AVATARS.length;
@@ -2005,7 +2158,6 @@
         SoundFX.playPop();
       };
 
-      // Tab Buat Room vs Gabung Room
       const tabCreate = document.getElementById('tab-create');
       const tabJoin = document.getElementById('tab-join');
       const panelCreate = document.getElementById('panel-create');
@@ -2025,11 +2177,9 @@
         panelCreate.classList.add('hidden');
       };
 
-      // Tombol Buat & Gabung
       document.getElementById('btn-create-room').onclick = createRoomAsHost;
       document.getElementById('btn-join-room').onclick = joinRoomAsGuest;
 
-      // Salin Kode Room (Menggunakan document.execCommand('copy') agar kompatibel semua iFrame/HP)
       document.getElementById('btn-copy-code').onclick = () => {
         const tempInput = document.createElement('input');
         tempInput.value = AppState.roomCode;
@@ -2040,7 +2190,6 @@
         showToast(`Kode Room ${AppState.roomCode} disalin!`, 'success');
       };
 
-      // Tombol Waiting Room
       document.getElementById('btn-add-bot').onclick = addBotToLobby;
       document.getElementById('btn-start-game').onclick = () => startNewMatchOrRound(false);
       document.getElementById('btn-leave-waiting').onclick = () => {
@@ -2054,7 +2203,6 @@
         });
       };
 
-      // Tombol Aksi Permainan
       document.getElementById('btn-place-left').onclick = () => {
         if (AppState.selectedCardId) triggerPlayTile(AppState.selectedCardId, 'left');
       };
@@ -2064,7 +2212,6 @@
       document.getElementById('btn-draw-boneyard').onclick = triggerDrawBoneyard;
       document.getElementById('btn-pass-turn').onclick = triggerPassTurn;
 
-      // Tombol Keluar saat Permainan Berlangsung
       document.getElementById('btn-game-exit').onclick = () => {
         openCustomModal({
           title: 'Keluar Permainan?',
@@ -2076,11 +2223,9 @@
         });
       };
 
-      // Tombol Aturan & Skor
       document.getElementById('btn-open-rules').onclick = showRulesModal;
       document.getElementById('btn-open-scoreboard').onclick = showScoreboardModal;
 
-      // Toggle Suara (Lobby & Game)
       function updateSoundButtons() {
         const isMuted = SoundFX.toggleMute();
         document.getElementById('lobby-sound-icon').textContent = isMuted ? '🔇' : '🔊';
@@ -2091,7 +2236,6 @@
       document.getElementById('btn-lobby-sound').onclick = updateSoundButtons;
       document.getElementById('btn-game-sound').onclick = updateSoundButtons;
 
-      // Drawer Chat & Emoji
       const chatDrawer = document.getElementById('chat-drawer');
       document.getElementById('btn-toggle-chat').onclick = () => {
         chatDrawer.classList.toggle('hidden');
