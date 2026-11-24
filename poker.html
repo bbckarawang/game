@@ -1,0 +1,2651 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Poker Tongkrongan P2P — 2-8 Pemain</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- PeerJS untuk koneksi P2P tanpa database/server -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <!-- Font Plus Jakarta Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@600;800&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --felt-center: #0f5c3a;
+      --felt-edge: #073320;
+      --rail-dark: #231712;
+      --rail-gold: #d4af37;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    input, textarea {
+      user-select: text;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: radial-gradient(circle at 50% 20%, #151b28 0%, #090c12 100%);
+      color: #f8fafc;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+      min-height: 100dvh;
+    }
+
+    .font-mono-num {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Meja Poker Oval Kasino Mewah */
+    .poker-table-outer {
+      background: linear-gradient(145deg, #3a2419, #1b100b);
+      border: 3px solid #d4af37;
+      box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.85),
+        inset 0 2px 8px rgba(255, 223, 128, 0.35),
+        0 0 0 6px rgba(15, 23, 42, 0.9);
+      position: relative;
+    }
+
+    .poker-table-felt {
+      background: radial-gradient(ellipse at center, var(--felt-center) 0%, var(--felt-edge) 85%, #041f13 100%);
+      box-shadow: inset 0 0 35px rgba(0, 0, 0, 0.75);
+      border: 2px solid rgba(212, 175, 55, 0.35);
+      position: relative;
+    }
+
+    .poker-table-felt::after {
+      content: "";
+      position: absolute;
+      inset: 10px;
+      border-radius: inherit;
+      border: 1px dashed rgba(212, 175, 55, 0.22);
+      pointer-events: none;
+    }
+
+    /* Kartu Remi Tajam */
+    .playing-card {
+      background: linear-gradient(160deg, #ffffff 0%, #f1f5f9 100%);
+      border-radius: 7px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(148, 163, 184, 0.5);
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
+      position: relative;
+      display: inline-flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+    }
+
+    .playing-card.back {
+      background: repeating-linear-gradient(
+        45deg,
+        #1e3a8a,
+        #1e3a8a 5px,
+        #1d4ed8 5px,
+        #1d4ed8 10px
+      );
+      border: 2px solid #f8fafc;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    }
+
+    .playing-card.back::before {
+      content: "♠";
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255, 255, 255, 0.28);
+      font-size: 1.1rem;
+    }
+
+    .playing-card.winner-glow {
+      box-shadow: 0 0 16px 4px #fbbf24, 0 0 0 2px #f59e0b;
+      transform: translateY(-6px) scale(1.06);
+      z-index: 20;
+    }
+
+    .playing-card.discard-selected {
+      transform: translateY(-12px);
+      box-shadow: 0 0 0 2.5px #ef4444, 0 10px 18px rgba(239, 68, 68, 0.45);
+    }
+
+    /* Animasi Deal & Flip */
+    @keyframes cardDeal {
+      0% {
+        opacity: 0;
+        transform: translateY(-28px) scale(0.65) rotate(-8deg);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1) rotate(0deg);
+      }
+    }
+
+    .animate-deal {
+      animation: cardDeal 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    @keyframes chipSlide {
+      0% {
+        opacity: 0;
+        transform: scale(0.5) translateY(12px);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    .animate-chip {
+      animation: chipSlide 0.28s ease-out forwards;
+    }
+
+    /* Bubble Chat Menggemaskan */
+    @keyframes bubblePop {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, 8px) scale(0.6);
+      }
+      15% {
+        opacity: 1;
+        transform: translate(-50%, 0) scale(1.06);
+      }
+      25% {
+        transform: translate(-50%, 0) scale(1);
+      }
+      85% {
+        opacity: 1;
+        transform: translate(-50%, -2px) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -12px) scale(0.85);
+      }
+    }
+
+    .chat-bubble {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #ffffff;
+      color: #0f172a;
+      padding: 5px 10px;
+      border-radius: 14px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+      max-width: 165px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+      border: 2px solid #fbbf24;
+      z-index: 60;
+      animation: bubblePop 4.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      pointer-events: none;
+    }
+
+    .chat-bubble::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      margin-left: -5px;
+      border-width: 5px;
+      border-style: solid;
+      border-color: #fbbf24 transparent transparent transparent;
+    }
+
+    /* Emoji Terbang */
+    @keyframes floatEmoji {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, 0) scale(0.4) rotate(-15deg);
+      }
+      20% {
+        opacity: 1;
+        transform: translate(-50%, -18px) scale(1.3) rotate(10deg);
+      }
+      80% {
+        opacity: 1;
+        transform: translate(-50%, -55px) scale(1.1) rotate(-8deg);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -75px) scale(0.8) rotate(0deg);
+      }
+    }
+
+    .floating-emoji {
+      position: absolute;
+      top: -10px;
+      left: 50%;
+      font-size: 28px;
+      z-index: 65;
+      pointer-events: none;
+      animation: floatEmoji 2.4s ease-out forwards;
+      filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+    }
+
+    /* Active Turn Pulse */
+    @keyframes turnPulse {
+      0%, 100% {
+        box-shadow: 0 0 0 2px #fbbf24, 0 0 18px rgba(251, 191, 36, 0.7);
+      }
+      50% {
+        box-shadow: 0 0 0 4px #f59e0b, 0 0 28px rgba(245, 158, 11, 0.95);
+      }
+    }
+
+    .active-turn-ring {
+      animation: turnPulse 1.4s infinite ease-in-out;
+    }
+
+    /* Custom Range Slider */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 8px;
+      border-radius: 999px;
+      background: #334155;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 22px;
+      width: 22px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #fde047, #d97706);
+      border: 2px solid #fff;
+      margin-top: -7px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    }
+
+    /* Scrollbar halus */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.4);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.35);
+      border-radius: 999px;
+    }
+  </style>
+</head>
+<body class="flex flex-col min-h-dvh selection:bg-amber-400 selection:text-slate-950">
+
+  <!-- Container Toast Notifikasi Elegan (Pengganti alert/confirm) -->
+  <div id="toast-container" class="fixed top-3 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center gap-2 w-[92%] max-w-md pointer-events-none"></div>
+
+  <!-- Canvas Konfeti Kemenangan -->
+  <canvas id="confetti-canvas" class="fixed inset-0 pointer-events-none z-[90]"></canvas>
+
+  <!-- ==================== HEADER TOP BAR ==================== -->
+  <header class="w-full px-3 py-2.5 bg-slate-950/80 backdrop-blur-md border-b border-amber-500/20 flex items-center justify-between gap-2 sticky top-0 z-40">
+    <div class="flex items-center gap-2">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-slate-950 font-extrabold text-lg shadow-md shadow-amber-500/20">
+        ♠
+      </div>
+      <div>
+        <h1 class="text-sm sm:text-base font-extrabold tracking-tight text-amber-300 leading-tight">POKER TONGKRONGAN</h1>
+        <p id="header-subtitle" class="text-[11px] text-slate-400 leading-tight">P2P Tanpa Server • 2–8 HP</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-1.5 sm:gap-2">
+      <!-- Badge Kode Room saat aktif -->
+      <button id="header-room-badge" onclick="copyInviteLink()" class="hidden items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-950/90 border border-emerald-500/40 text-emerald-300 text-xs font-bold hover:bg-emerald-900 transition active:scale-95">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+        <span>ROOM: <strong id="header-room-code" class="font-mono-num text-white">----</strong></span>
+        <span class="text-[10px] bg-emerald-500/20 px-1.5 py-0.5 rounded">Salin</span>
+      </button>
+
+      <!-- Tombol Tutorial / Cara Main -->
+      <button onclick="openTutorialModal()" class="px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-amber-300 text-xs font-bold flex items-center gap-1 transition active:scale-95">
+        <span>📖</span>
+        <span class="hidden sm:inline">Cara Main</span>
+      </button>
+
+      <!-- Tombol Mute / Unmute Suara -->
+      <button id="btn-sound-toggle" onclick="toggleSound()" title="Suara Efek" class="w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 flex items-center justify-center text-base transition active:scale-95">
+        🔊
+      </button>
+
+      <!-- Tombol Keluar Room (Muncul saat di Lobby/Meja) -->
+      <button id="btn-leave-room" onclick="promptLeaveRoom()" class="hidden px-2.5 py-1.5 rounded-xl bg-rose-950/90 hover:bg-rose-900 border border-rose-500/40 text-rose-300 text-xs font-bold transition active:scale-95">
+        Keluar
+      </button>
+    </div>
+  </header>
+
+  <!-- ==================== SCREEN 1: HOME / KONEKSI P2P ==================== -->
+  <main id="screen-home" class="flex-1 flex flex-col items-center justify-center p-4 max-w-lg mx-auto w-full gap-4">
+    <!-- Hero Card -->
+    <div class="w-full bg-slate-900/85 border border-amber-500/25 rounded-3xl p-5 shadow-2xl backdrop-blur-md">
+      <div class="text-center mb-4">
+        <span class="inline-block px-3 py-1 rounded-full bg-amber-500/15 border border-amber-400/30 text-amber-300 text-[11px] font-bold tracking-wide mb-2">
+          ⚡ 100% P2P WEBRTC • TANPA DATABASE
+        </span>
+        <h2 class="text-2xl font-extrabold text-white">Mabar Poker Bareng Bestie</h2>
+        <p class="text-xs text-slate-400 mt-1">Main langsung antar 2 sampai 8 HP. Pilih varian favoritmu & gertak lawanmu!</p>
+      </div>
+
+      <!-- Profil Pemain -->
+      <div class="space-y-3 mb-5">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1">Nama Panggilanmu</label>
+          <input id="input-player-name" type="text" maxlength="14" placeholder="Contoh: Sultan Depok"
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/90 border border-slate-700 focus:border-amber-400 focus:outline-none text-sm font-bold text-white placeholder:text-slate-600" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1.5">Pilih Avatar Tongkrongan</label>
+          <div id="avatar-picker" class="grid grid-cols-6 gap-1.5">
+            <!-- Diisi otomatis via JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs Buat Room vs Gabung Room -->
+      <div class="grid grid-cols-2 gap-2 p-1 bg-slate-950 rounded-2xl border border-slate-800 mb-4">
+        <button id="tab-create" onclick="switchHomeTab('create')" class="py-2 rounded-xl text-xs font-extrabold bg-amber-400 text-slate-950 shadow transition">
+          👑 Buat Meja (Host)
+        </button>
+        <button id="tab-join" onclick="switchHomeTab('join')" class="py-2 rounded-xl text-xs font-extrabold text-slate-400 hover:text-white transition">
+          🎟️ Gabung Meja
+        </button>
+      </div>
+
+      <!-- Panel Buat Room (Host) -->
+      <div id="panel-create" class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1.5">Pilih Varian Poker</label>
+          <div id="home-variant-selector" class="grid grid-cols-2 gap-2">
+            <!-- Diisi via JS -->
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-400 mb-1">Modal Awal Chip</label>
+            <select id="select-starting-chips" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs font-bold text-amber-300 focus:outline-none focus:border-amber-400">
+              <option value="1000">1.000 Chip</option>
+              <option value="2000" selected>2.000 Chip</option>
+              <option value="5000">5.000 Chip</option>
+              <option value="10000">10.000 Chip</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-400 mb-1">Small / Big Blind</label>
+            <select id="select-blinds" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs font-bold text-emerald-300 focus:outline-none focus:border-amber-400">
+              <option value="10">10 / 20</option>
+              <option value="25" selected>25 / 50</option>
+              <option value="50">50 / 100</option>
+              <option value="100">100 / 200</option>
+            </select>
+          </div>
+        </div>
+
+        <button id="btn-create-room" onclick="createHostRoom()" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 hover:brightness-110 text-slate-950 font-extrabold text-sm shadow-lg shadow-amber-500/25 transition active:scale-[0.98] flex items-center justify-center gap-2">
+          <span>🚀 Buat Meja Sekarang</span>
+        </button>
+      </div>
+
+      <!-- Panel Gabung Room (Guest) -->
+      <div id="panel-join" class="hidden space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1">Masukkan Kode Room (4-5 Karakter)</label>
+          <input id="input-room-code" type="text" maxlength="6" placeholder="MISAL: A7K9"
+            class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-700 focus:border-emerald-400 focus:outline-none text-center font-mono-num text-xl font-extrabold tracking-widest uppercase text-emerald-300 placeholder:text-slate-700" />
+        </div>
+        <button id="btn-join-room" onclick="joinGuestRoom()" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-500 hover:brightness-110 text-slate-950 font-extrabold text-sm shadow-lg shadow-emerald-500/25 transition active:scale-[0.98] flex items-center justify-center gap-2">
+          <span>🎯 Gabung ke Meja</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Banner Info Singkat -->
+    <div class="w-full bg-slate-900/60 border border-slate-800 rounded-2xl p-3 flex items-center justify-between gap-3">
+      <div class="text-xs text-slate-300">
+        <span class="font-bold text-amber-300">Baru pertama main?</span> Pelajari beda Texas Hold'em, Omaha, Short Deck & 5-Card Draw.
+      </div>
+      <button onclick="openTutorialModal()" class="shrink-0 px-3 py-2 rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-300 text-xs font-bold hover:bg-amber-500/30 transition">
+        Baca Panduan
+      </button>
+    </div>
+  </main>
+
+  <!-- ==================== SCREEN 2: LOBBY TUNGGU PEMAIN ==================== -->
+  <section id="screen-lobby" class="hidden flex-1 flex-col items-center justify-center p-4 max-w-xl mx-auto w-full gap-4">
+    <div class="w-full bg-slate-900/90 border border-amber-500/30 rounded-3xl p-5 shadow-2xl">
+      <div class="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-slate-800">
+        <div>
+          <span class="text-[11px] font-bold uppercase tracking-wider text-amber-400">Kode Meja P2P</span>
+          <div class="flex items-center gap-2 mt-0.5">
+            <span id="lobby-room-code" class="font-mono-num text-3xl font-extrabold text-white tracking-widest">-----</span>
+            <button onclick="copyInviteLink()" class="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-extrabold transition active:scale-95">
+              📋 Salin Link
+            </button>
+          </div>
+        </div>
+        <div class="text-right">
+          <span class="inline-block px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold">
+            <span id="lobby-player-count">1</span> / 8 Pemain
+          </span>
+          <p class="text-[11px] text-slate-400 mt-1">Min. 2 HP untuk mulai</p>
+        </div>
+      </div>
+
+      <!-- Pengaturan Varian di Lobby (Host bisa ubah, Guest melihat) -->
+      <div class="my-4 bg-slate-950/80 border border-slate-800 rounded-2xl p-3.5">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-bold text-slate-300">Varian Permainan Aktif</span>
+          <span id="lobby-blinds-info" class="text-[11px] font-mono-num text-amber-300 font-bold">Chip: 2000 | Blind: 25/50</span>
+        </div>
+        <div id="lobby-variant-grid" class="grid grid-cols-2 gap-2">
+          <!-- Diisi JS -->
+        </div>
+      </div>
+
+      <!-- Daftar Pemain di Lobby -->
+      <div class="mb-4">
+        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Pemain di Tongkrongan</h3>
+        <div id="lobby-players-list" class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <!-- Diisi JS -->
+        </div>
+      </div>
+
+      <!-- Tombol Mulai Game (Khusus Host) -->
+      <div id="lobby-host-controls" class="hidden">
+        <button id="btn-start-game" onclick="hostStartGame()" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500 hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 font-extrabold text-sm shadow-lg shadow-emerald-500/25 transition active:scale-[0.98]">
+          🃏 Mulai Permainan Sekarang!
+        </button>
+      </div>
+
+      <div id="lobby-guest-wait" class="hidden text-center py-3 px-4 rounded-2xl bg-slate-950/70 border border-slate-800 text-xs text-slate-300">
+        ⏳ Menunggu <strong class="text-amber-300">Host</strong> memulai permainan... Sambil nunggu, cek panduan varian dulu yuk!
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== SCREEN 3: MEJA POKER UTAMA ==================== -->
+  <section id="screen-game" class="hidden flex-1 flex-col justify-between p-2 sm:p-3 max-w-5xl mx-auto w-full gap-2 overflow-hidden">
+
+    <!-- Bar Info Varian & Log Ronde -->
+    <div class="flex items-center justify-between gap-2 px-3 py-1.5 rounded-2xl bg-slate-900/85 border border-slate-800 text-xs">
+      <div class="flex items-center gap-2 min-w-0">
+        <span id="game-variant-badge" class="px-2 py-0.5 rounded-lg bg-amber-500/20 border border-amber-400/40 text-amber-300 font-extrabold text-[11px] shrink-0">
+          Texas Hold'em
+        </span>
+        <span id="game-stage-badge" class="px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 font-bold text-[11px] shrink-0">
+          PRE-FLOP
+        </span>
+        <span id="game-status-text" class="text-slate-300 truncate text-[11px] sm:text-xs">
+          Menunggu giliran...
+        </span>
+      </div>
+      <div class="font-mono-num text-[11px] text-slate-400 shrink-0">
+        Blind <span id="game-blind-display" class="text-amber-300 font-bold">25/50</span>
+      </div>
+    </div>
+
+    <!-- AREA MEJA OVAL & KURSI PEMAIN (2 - 8 PEMAIN) -->
+    <div class="relative flex-1 min-h-[370px] sm:min-h-[430px] flex items-center justify-center my-1">
+      <!-- Meja Oval -->
+      <div class="poker-table-outer w-[92%] sm:w-[84%] h-[250px] sm:h-[300px] rounded-[130px] sm:rounded-[160px] p-2.5 sm:p-3.5 flex items-center justify-center">
+        <div class="poker-table-felt w-full h-full rounded-[118px] sm:rounded-[148px] flex flex-col items-center justify-center px-3 py-2 relative">
+
+          <!-- Total Pot di Tengah Atas -->
+          <div class="mb-2 px-3.5 py-1 rounded-full bg-slate-950/75 border border-amber-400/40 flex items-center gap-1.5 shadow-lg">
+            <span class="text-amber-400 text-xs">🪙</span>
+            <span class="text-[11px] text-slate-300 font-bold">POT:</span>
+            <span id="table-pot-amount" class="font-mono-num text-sm sm:text-base font-extrabold text-amber-300">0</span>
+          </div>
+
+          <!-- Kartu Meja (Community Cards) untuk Hold'em / Omaha / Short Deck -->
+          <div id="community-cards-area" class="flex items-center justify-center gap-1.5 sm:gap-2 min-h-[66px] sm:min-h-[82px]">
+            <!-- Kartu meja dirender di sini -->
+          </div>
+
+          <!-- Info Khusus 5-Card Draw (Karena tidak pakai kartu meja) -->
+          <div id="draw-table-center-info" class="hidden text-center px-4 py-2 rounded-2xl bg-slate-950/60 border border-amber-500/25">
+            <p class="text-xs font-extrabold text-amber-300">🎴 FIVE-CARD DRAW</p>
+            <p id="draw-center-sub" class="text-[11px] text-slate-300 mt-0.5">5 kartu tertutup di tangan masing-masing</p>
+          </div>
+
+          <!-- Banner Pemenang Ronde -->
+          <div id="winner-banner" class="hidden mt-2 px-3 py-1 rounded-xl bg-gradient-to-r from-amber-500/90 to-yellow-500/90 text-slate-950 text-xs font-extrabold shadow-lg text-center max-w-[90%] truncate">
+            🏆 Pemenang Ronde!
+          </div>
+        </div>
+      </div>
+
+      <!-- Layer Kursi Pemain Mengelilingi Meja -->
+      <div id="seats-container" class="absolute inset-0 pointer-events-none">
+        <!-- Kursi pemain di-render dinamis berdasarkan posisi relatif terhadap pemain lokal -->
+      </div>
+    </div>
+
+    <!-- PANEL KARTU SAYA & KONTROL AKSI JEMPOL -->
+    <div class="bg-slate-900/95 border border-slate-800 rounded-3xl p-3 shadow-2xl space-y-2.5">
+
+      <!-- Baris Atas: Kartu Tangan Lokal + Kekuatan Kombinasi + Tombol Chat/Emoji -->
+      <div class="flex items-center justify-between gap-2">
+        <!-- Kartu Tangan Pemain Lokal -->
+        <div class="flex items-center gap-2.5">
+          <div id="my-hand-cards" class="flex items-center gap-1.5 min-h-[74px] sm:min-h-[86px]">
+            <!-- Kartu tangan saya -->
+          </div>
+          <div class="flex flex-col justify-center">
+            <span class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Kombinasimu</span>
+            <span id="my-hand-rank-label" class="text-xs sm:text-sm font-extrabold text-amber-300 leading-tight">
+              Menunggu kartu...
+            </span>
+            <span id="my-chips-display" class="font-mono-num text-xs font-bold text-emerald-400 mt-0.5">
+              🪙 0
+            </span>
+          </div>
+        </div>
+
+        <!-- Tombol Reaksi Emoji & Chat Lucu -->
+        <div class="flex items-center gap-1.5">
+          <button onclick="toggleChatDrawer()" class="px-3 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-extrabold flex items-center gap-1.5 transition active:scale-95 shadow">
+            <span>💬</span>
+            <span class="hidden sm:inline">Chat & Emoji</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Drawer Emoji Cepat & Chat Lucu Tongkrongan -->
+      <div id="chat-emoji-drawer" class="hidden bg-slate-950/90 border border-slate-800 rounded-2xl p-2.5 space-y-2">
+        <!-- Baris Emoji -->
+        <div class="flex items-center justify-between gap-1 overflow-x-auto pb-1">
+          <button onclick="sendReaction('emoji', '😂')" class="text-xl p-1.5 hover:bg-slate-800 rounded-xl transition active:scale-125">😂</button>
+          <button onclick="sendReaction('emoji', '😱')" class="text-xl p-1.5 hover:bg-slate-800 rounded-xl transition active:scale-125">😱</button>
+          <button onclick="sendReaction('emoji', '🔥')" class="text-xl p-1.5 hover:bg-slate-800 rounded-xl transition active:scale-125">🔥</button>
+          <button onclick="sendReaction('emoji', '😎')" class="text-xl p-1.5 hover:bg-slate-800 rounded-xl transition active:scale-125">😎</button>
+          <button onclick="sendReaction('emoji', '😭')" class="text-xl p-1.5 hover:bg-slate-800 rounded-xl transition active:scale-125">😭</button>
+          <button onclick="sendReaction('emoji', '🤡')" class="text-xl p-1.5 hover:bg-slate-800 rounded-xl transition active:scale-125">🤡</button>
+          <button onclick="sendReaction('emoji', '🤑')" class="text-xl p-1.5 hover:bg-slate-800 rounded-xl transition active:scale-125">🤑</button>
+          <button onclick="sendReaction('emoji', '🙏')" class="text-xl p-1.5 hover:bg-slate-800 rounded-xl transition active:scale-125">🙏</button>
+        </div>
+        <!-- Preset Chat Lucu -->
+        <div class="flex gap-1.5 overflow-x-auto pb-1">
+          <button onclick="sendReaction('chat', 'All-in nih bos! 🔥')" class="shrink-0 px-2.5 py-1 rounded-xl bg-amber-500/20 border border-amber-400/30 text-amber-200 text-[11px] font-bold hover:bg-amber-500/30">All-in nih bos! 🔥</button>
+          <button onclick="sendReaction('chat', 'Gertak sambel doang! 🌶️')" class="shrink-0 px-2.5 py-1 rounded-xl bg-slate-800 text-slate-200 text-[11px] font-bold hover:bg-slate-700">Gertak sambel doang! 🌶️</button>
+          <button onclick="sendReaction('chat', 'Kartu ampas 😭')" class="shrink-0 px-2.5 py-1 rounded-xl bg-slate-800 text-slate-200 text-[11px] font-bold hover:bg-slate-700">Kartu ampas 😭</button>
+          <button onclick="sendReaction('chat', 'Waduh suhu ampun 🙏')" class="shrink-0 px-2.5 py-1 rounded-xl bg-slate-800 text-slate-200 text-[11px] font-bold hover:bg-slate-700">Waduh suhu ampun 🙏</button>
+          <button onclick="sendReaction('chat', 'Jangan lama mikirnya ⏳')" class="shrink-0 px-2.5 py-1 rounded-xl bg-slate-800 text-slate-200 text-[11px] font-bold hover:bg-slate-700">Jangan lama mikirnya ⏳</button>
+          <button onclick="sendReaction('chat', 'Hoki seumur hidup kepake! 🍀')" class="shrink-0 px-2.5 py-1 rounded-xl bg-slate-800 text-slate-200 text-[11px] font-bold hover:bg-slate-700">Hoki seumur hidup kepake! 🍀</button>
+        </div>
+        <!-- Input Chat Bebas -->
+        <form onsubmit="submitCustomChat(event)" class="flex gap-1.5">
+          <input id="input-custom-chat" type="text" maxlength="42" placeholder="Ketik pesan singkat lucu..."
+            class="flex-1 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-amber-400" />
+          <button type="submit" class="px-3.5 py-1.5 rounded-xl bg-amber-400 text-slate-950 text-xs font-extrabold">Kirim</button>
+        </form>
+      </div>
+
+      <!-- KONTROL AKSI TARUHAN (FOLD / CHECK-CALL / RAISE) -->
+      <div id="betting-controls-area" class="hidden space-y-2">
+        <!-- Slider Raise & Shortcut -->
+        <div id="raise-panel" class="bg-slate-950/90 border border-slate-800 rounded-2xl p-2.5 space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-1 flex-wrap">
+              <button onclick="setRaisePreset('min')" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-200">Min</button>
+              <button onclick="setRaisePreset('2x')" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-200">2x</button>
+              <button onclick="setRaisePreset('half')" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-200">½ Pot</button>
+              <button onclick="setRaisePreset('pot')" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-200">Pot</button>
+              <button onclick="setRaisePreset('allin')" class="px-2 py-1 rounded-lg bg-rose-900/80 hover:bg-rose-800 text-[11px] font-extrabold text-rose-200">ALL-IN</button>
+            </div>
+            <span class="font-mono-num text-sm font-extrabold text-amber-300" id="raise-amount-label">100</span>
+          </div>
+          <input id="raise-slider" type="range" min="50" max="2000" step="10" value="100" oninput="onRaiseSliderChange(this.value)" class="w-full" />
+        </div>
+
+        <!-- 3 Tombol Utama Jempol -->
+        <div class="grid grid-cols-3 gap-2">
+          <button onclick="sendPlayerAction('fold')" class="py-3 rounded-2xl bg-rose-600/90 hover:bg-rose-500 text-white font-extrabold text-xs sm:text-sm shadow-lg shadow-rose-950/50 transition active:scale-95">
+            🏳️ FOLD
+          </button>
+          <button id="btn-call-check" onclick="sendPlayerAction('call')" class="py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs sm:text-sm shadow-lg shadow-emerald-950/50 transition active:scale-95">
+            ✅ CHECK
+          </button>
+          <button id="btn-raise-submit" onclick="sendPlayerAction('raise')" class="py-3 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-500 hover:brightness-110 text-slate-950 font-extrabold text-xs sm:text-sm shadow-lg shadow-amber-950/50 transition active:scale-95">
+            🔥 RAISE
+          </button>
+        </div>
+      </div>
+
+      <!-- KONTROL KHUSUS FASE TUKAR KARTU (5-CARD DRAW) -->
+      <div id="draw-phase-controls" class="hidden bg-indigo-950/80 border border-indigo-400/40 rounded-2xl p-3 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+        <div class="text-center sm:text-left">
+          <p class="text-xs font-extrabold text-indigo-200">🔄 Fase Tukar Kartu (5-Card Draw)</p>
+          <p class="text-[11px] text-indigo-300/80">Tap kartu di tanganmu yang mau dibuang (0–5 kartu), lalu klik Tukar.</p>
+        </div>
+        <button id="btn-confirm-draw" onclick="submitDrawDiscard()" class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-400 hover:bg-indigo-300 text-slate-950 font-extrabold text-xs shadow-lg transition active:scale-95">
+          Tukar 0 Kartu (Stand Pat)
+        </button>
+      </div>
+
+      <!-- KONTROL ANTAR RONDE / REBUY / GANTI VARIAN -->
+      <div id="between-rounds-controls" class="hidden space-y-2 pt-1">
+        <!-- Opsi Rebuy jika chip habis -->
+        <div id="rebuy-box" class="hidden p-2.5 rounded-2xl bg-rose-950/70 border border-rose-500/40 flex items-center justify-between gap-2">
+          <span class="text-xs font-bold text-rose-200">😭 Chip kamu habis! Isi ulang biar lanjut mabar?</span>
+          <button onclick="requestRebuy()" class="px-3.5 py-1.5 rounded-xl bg-amber-400 text-slate-950 text-xs font-extrabold shrink-0">
+            🪙 Isi Ulang Chip
+          </button>
+        </div>
+
+        <!-- Kontrol Host untuk Ronde Berikutnya + Ganti Varian -->
+        <div id="host-next-round-box" class="hidden flex flex-col sm:flex-row items-center gap-2">
+          <select id="next-round-variant-select" class="w-full sm:w-auto px-3 py-2.5 rounded-xl bg-slate-950 border border-amber-400/40 text-xs font-extrabold text-amber-300 focus:outline-none">
+            <option value="texas">Varian: Texas Hold'em</option>
+            <option value="omaha">Varian: Omaha Hold'em</option>
+            <option value="shortdeck">Varian: Short Deck (6+)</option>
+            <option value="draw5">Varian: Five-Card Draw</option>
+          </select>
+          <button onclick="hostStartNextRound()" class="w-full flex-1 py-3 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-500 text-slate-950 font-extrabold text-xs sm:text-sm shadow-lg transition active:scale-95">
+            🃏 Lanjut Ronde Berikutnya
+          </button>
+        </div>
+
+        <div id="guest-next-round-wait" class="hidden text-center py-2 text-xs text-slate-400">
+          ⏳ Menunggu Host memulai ronde berikutnya...
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ==================== MODAL TUTORIAL & URUTAN KARTU ==================== -->
+  <div id="modal-tutorial" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5">
+    <div class="bg-slate-900 border border-amber-500/35 rounded-3xl w-full max-w-2xl max-h-[88dvh] flex flex-col shadow-2xl overflow-hidden">
+      <!-- Header Modal -->
+      <div class="px-5 py-3.5 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">📖</span>
+          <h3 class="text-base font-extrabold text-amber-300">Panduan Cara Main & Varian Poker</h3>
+        </div>
+        <button onclick="closeTutorialModal()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold flex items-center justify-center">✕</button>
+      </div>
+
+      <!-- Tab Navigasi Tutorial -->
+      <div class="flex gap-1.5 p-2.5 bg-slate-950/60 border-b border-slate-800 overflow-x-auto">
+        <button onclick="switchTutorialTab('texas')" id="tut-tab-texas" class="tut-tab shrink-0 px-3 py-1.5 rounded-xl text-xs font-extrabold bg-amber-400 text-slate-950">Texas Hold'em</button>
+        <button onclick="switchTutorialTab('omaha')" id="tut-tab-omaha" class="tut-tab shrink-0 px-3 py-1.5 rounded-xl text-xs font-extrabold bg-slate-800 text-slate-300">Omaha Hold'em</button>
+        <button onclick="switchTutorialTab('shortdeck')" id="tut-tab-shortdeck" class="tut-tab shrink-0 px-3 py-1.5 rounded-xl text-xs font-extrabold bg-slate-800 text-slate-300">Short Deck (6+)</button>
+        <button onclick="switchTutorialTab('draw5')" id="tut-tab-draw5" class="tut-tab shrink-0 px-3 py-1.5 rounded-xl text-xs font-extrabold bg-slate-800 text-slate-300">5-Card Draw</button>
+        <button onclick="switchTutorialTab('ranks')" id="tut-tab-ranks" class="tut-tab shrink-0 px-3 py-1.5 rounded-xl text-xs font-extrabold bg-slate-800 text-slate-300">🏆 Urutan Kartu</button>
+      </div>
+
+      <!-- Isi Konten Tutorial -->
+      <div id="tutorial-content" class="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs sm:text-sm text-slate-200 leading-relaxed">
+        <!-- Diisi secara dinamis via JS -->
+      </div>
+
+      <div class="p-3 bg-slate-950 border-t border-slate-800 flex justify-end">
+        <button onclick="closeTutorialModal()" class="px-5 py-2 rounded-xl bg-amber-400 text-slate-950 font-extrabold text-xs">Siap Paham, Gas Main!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL KONFIRMASI ELEGAN (PENGGANTI confirm()) ==================== -->
+  <div id="modal-confirm" class="hidden fixed inset-0 z-[80] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-3xl p-5 max-w-sm w-full shadow-2xl space-y-4">
+      <div class="flex items-center gap-2.5">
+        <span class="text-2xl">🚪</span>
+        <h4 id="confirm-title" class="text-base font-extrabold text-white">Konfirmasi</h4>
+      </div>
+      <p id="confirm-message" class="text-xs text-slate-300 leading-relaxed">Apakah kamu yakin ingin keluar dari meja?</p>
+      <div class="flex justify-end gap-2">
+        <button onclick="closeConfirmModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300">Batal</button>
+        <button id="confirm-yes-btn" class="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-xs font-extrabold text-white">Ya, Keluar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ============================================================================
+       1. KONFIGURASI GLOBAL, VARIAN POKER & AUDIO SINTETIS (WEB AUDIO API)
+       ============================================================================ */
+    const AVATARS = ['😎', '🤠', '🦊', '🐼', '🐯', '🐸', '🦁', '🐙', '🤖', '👻', '🐵', '🦄'];
+
+    const VARIANTS = {
+      texas: {
+        id: 'texas',
+        name: "Texas Hold'em",
+        badge: "TEXAS",
+        icon: "🤠",
+        shortDesc: "2 kartu tangan + 5 kartu meja. Klasik paling populer!"
+      },
+      omaha: {
+        id: 'omaha',
+        name: "Omaha Hold'em",
+        badge: "OMAHA",
+        icon: "🔥",
+        shortDesc: "4 kartu tangan + 5 kartu meja (Wajib 2 tangan + 3 meja)."
+      },
+      shortdeck: {
+        id: 'shortdeck',
+        name: "Short Deck (6+)",
+        badge: "6+ DECK",
+        icon: "⚡",
+        shortDesc: "Tanpa kartu 2–5! Flush mengalahkan Full House."
+      },
+      draw5: {
+        id: 'draw5',
+        name: "Five-Card Draw",
+        badge: "5-DRAW",
+        icon: "🎴",
+        shortDesc: "5 kartu tertutup + 1x kesempatan tukar kartu!"
+      }
+    };
+
+    const SUITS = [
+      { id: 'S', symbol: '♠', color: 'text-slate-900', name: 'Sekop' },
+      { id: 'H', symbol: '♥', color: 'text-rose-600', name: 'Hati' },
+      { id: 'D', symbol: '♦', color: 'text-rose-600', name: 'Wajik' },
+      { id: 'C', symbol: '♣', color: 'text-slate-900', name: 'Keriting' }
+    ];
+
+    const RANK_LABELS = {
+      2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9', 10: '10',
+      11: 'J', 12: 'Q', 13: 'K', 14: 'A'
+    };
+
+    // Web Audio API Sound Engine (Tanpa file MP3 eksternal)
+    const SoundFX = {
+      ctx: null,
+      muted: false,
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+      },
+      playTone(freq, type = 'sine', duration = 0.12, vol = 0.15, delay = 0) {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime + delay;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, now);
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.exponentialRampToValueAtTime(vol, now + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + duration + 0.02);
+      },
+      cardDeal() {
+        this.playTone(520, 'triangle', 0.07, 0.12, 0);
+        this.playTone(760, 'sine', 0.05, 0.08, 0.03);
+      },
+      chipBet() {
+        this.playTone(1350, 'sine', 0.08, 0.16, 0);
+        this.playTone(1850, 'sine', 0.09, 0.14, 0.05);
+      },
+      checkKnock() {
+        this.playTone(190, 'triangle', 0.08, 0.22, 0);
+        this.playTone(165, 'triangle', 0.09, 0.2, 0.11);
+      },
+      foldWhoosh() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(340, now);
+        osc.frequency.exponentialRampToValueAtTime(95, now + 0.22);
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.23);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.24);
+      },
+      chatPop() {
+        this.playTone(620, 'sine', 0.09, 0.14, 0);
+        this.playTone(930, 'sine', 0.11, 0.14, 0.06);
+      },
+      yourTurn() {
+        this.playTone(587.33, 'sine', 0.12, 0.15, 0);
+        this.playTone(880, 'sine', 0.18, 0.16, 0.09);
+      },
+      winFanfare() {
+        const notes = [523.25, 659.25, 783.99, 1046.5];
+        notes.forEach((n, idx) => {
+          this.playTone(n, 'triangle', 0.25, 0.18, idx * 0.1);
+        });
+      }
+    };
+
+    function toggleSound() {
+      SoundFX.muted = !SoundFX.muted;
+      document.getElementById('btn-sound-toggle').textContent = SoundFX.muted ? '🔇' : '🔊';
+      showToast(SoundFX.muted ? 'Suara dimatikan 🔇' : 'Suara diaktifkan 🔊', 'info');
+    }
+
+    /* ============================================================================
+       2. SISTEM NOTIFIKASI TOAST ELEGAN & KONFETI (PENGGANTI ALERT/CONFIRM)
+       ============================================================================ */
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const styles = {
+        info: 'bg-slate-900/95 border-slate-700 text-slate-100',
+        success: 'bg-emerald-950/95 border-emerald-500/60 text-emerald-200',
+        warning: 'bg-amber-950/95 border-amber-500/60 text-amber-200',
+        error: 'bg-rose-950/95 border-rose-500/60 text-rose-200'
+      };
+      const icons = { info: '✨', success: '✅', warning: '⚡', error: '⚠️' };
+
+      toast.className = `${styles[type] || styles.info} border px-4 py-2.5 rounded-2xl shadow-2xl backdrop-blur-md text-xs font-bold flex items-center gap-2 transition-all duration-300 transform -translate-y-4 opacity-0 pointer-events-auto`;
+      toast.innerHTML = `<span>${icons[type] || '✨'}</span><span>${escapeHtml(message)}</span>`;
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.remove('-translate-y-4', 'opacity-0');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('-translate-y-4', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }, 3200);
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // Konfeti Kemenangan
+    function launchConfetti() {
+      const canvas = document.getElementById('confetti-canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const colors = ['#fbbf24', '#34d399', '#f87171', '#60a5fa', '#c084fc'];
+      const particles = Array.from({ length: 75 }, () => ({
+        x: Math.random() * canvas.width,
+        y: -20 - Math.random() * 120,
+        r: 4 + Math.random() * 5,
+        dx: (Math.random() - 0.5) * 4,
+        dy: 2.5 + Math.random() * 4,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        tilt: Math.random() * 10
+      }));
+
+      let frames = 0;
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => {
+          p.x += p.dx;
+          p.y += p.dy;
+          p.tilt += 0.1;
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.ellipse(p.x, p.y, p.r, p.r * 0.55, p.tilt, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        frames++;
+        if (frames < 130) {
+          requestAnimationFrame(draw);
+        } else {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+      }
+      draw();
+    }
+
+    /* ============================================================================
+       3. STATE APLIKASI & P2P NETWORKING (PEERJS HOST-STAR)
+       ============================================================================ */
+    const ICE_CONFIG = {
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' }
+        ]
+      }
+    };
+
+    const appState = {
+      role: null, // 'host' | 'guest'
+      peer: null,
+      roomCode: '',
+      myId: '',
+      myName: '',
+      myAvatar: AVATARS[0],
+      selectedVariant: 'texas',
+      startingChips: 2000,
+      smallBlind: 25,
+      connections: {}, // Khusus Host: peerId -> DataConnection
+      hostConn: null,  // Khusus Guest: DataConnection ke Host
+
+      // State Meja Tersinkronisasi
+      game: {
+        phase: 'lobby', // 'lobby' | 'preflop' | 'flop' | 'turn' | 'river' | 'draw_bet1' | 'draw_exchange' | 'draw_bet2' | 'showdown'
+        variant: 'texas',
+        startingChips: 2000,
+        smallBlind: 25,
+        players: [], // { id, name, avatar, chips, bet, totalHandBet, folded, allIn, isHost, connected, hand: [], handRankName: '', hasActed: false, drawDone: false }
+        dealerIdx: 0,
+        currentTurnIdx: -1,
+        pot: 0,
+        currentBet: 0,
+        minRaise: 50,
+        communityCards: [],
+        winners: [], // { id, name, amount, rankName, bestCards }
+        statusMessage: 'Menunggu pemain bergabung...'
+      },
+
+      // State Lokal Pemain
+      selectedDiscardIndices: [],
+      lastTurnSoundId: null,
+      activeReactions: {} // playerId -> { type: 'emoji'|'chat', text, ts }
+    };
+
+    // Host-only deck state (tidak dikirim utuh ke guest demi mencegah intip kartu)
+    let hostDeck = [];
+
+    function generateRoomCode() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let code = '';
+      for (let i = 0; i < 5; i++) {
+        code += chars[Math.floor(Math.random() * chars.length)];
+      }
+      return code;
+    }
+
+    function getPeerIdFromCode(code) {
+      return `poker-tongkrongan-${code.toUpperCase()}`;
+    }
+
+    // Inisialisasi UI Home & Cek URL ?room=KODE
+    window.addEventListener('DOMContentLoaded', () => {
+      renderAvatarPicker();
+      renderVariantSelectors();
+
+      const savedName = localStorage.getItem('poker_p2p_name');
+      if (savedName) document.getElementById('input-player-name').value = savedName;
+
+      const params = new URLSearchParams(window.location.search);
+      const roomParam = params.get('room');
+      if (roomParam) {
+        switchHomeTab('join');
+        document.getElementById('input-room-code').value = roomParam.toUpperCase().slice(0, 6);
+        showToast(`Kode room ${roomParam.toUpperCase()} otomatis terisi!`, 'success');
+      }
+    });
+
+    function renderAvatarPicker() {
+      const container = document.getElementById('avatar-picker');
+      container.innerHTML = AVATARS.map((av, i) => `
+        <button type="button" onclick="selectAvatar('${av}', this)"
+          class="avatar-btn py-1.5 rounded-xl text-xl border transition ${i === 0 ? 'bg-amber-400/25 border-amber-400 scale-105' : 'bg-slate-950 border-slate-800 hover:border-slate-600'}">
+          ${av}
+        </button>
+      `).join('');
+    }
+
+    function selectAvatar(av, el) {
+      appState.myAvatar = av;
+      SoundFX.chatPop();
+      document.querySelectorAll('.avatar-btn').forEach(b => {
+        b.className = 'avatar-btn py-1.5 rounded-xl text-xl border transition bg-slate-950 border-slate-800 hover:border-slate-600';
+      });
+      el.className = 'avatar-btn py-1.5 rounded-xl text-xl border transition bg-amber-400/25 border-amber-400 scale-105';
+    }
+
+    function renderVariantSelectors() {
+      const homeContainer = document.getElementById('home-variant-selector');
+      homeContainer.innerHTML = Object.values(VARIANTS).map(v => `
+        <button type="button" onclick="selectHomeVariant('${v.id}')"
+          class="home-var-btn text-left p-2.5 rounded-2xl border transition ${appState.selectedVariant === v.id ? 'bg-amber-400/15 border-amber-400 text-white' : 'bg-slate-950/90 border-slate-800 text-slate-400 hover:border-slate-700'}">
+          <div class="flex items-center justify-between mb-0.5">
+            <span class="text-base">${v.icon}</span>
+            <span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-slate-800 text-amber-300">${v.badge}</span>
+          </div>
+          <div class="text-xs font-extrabold text-white">${v.name}</div>
+          <div class="text-[10px] text-slate-400 leading-tight mt-0.5">${v.shortDesc}</div>
+        </button>
+      `).join('');
+    }
+
+    function selectHomeVariant(varId) {
+      appState.selectedVariant = varId;
+      SoundFX.cardDeal();
+      renderVariantSelectors();
+    }
+
+    function switchHomeTab(tab) {
+      const isCreate = tab === 'create';
+      document.getElementById('panel-create').classList.toggle('hidden', !isCreate);
+      document.getElementById('panel-join').classList.toggle('hidden', isCreate);
+
+      document.getElementById('tab-create').className = isCreate
+        ? 'py-2 rounded-xl text-xs font-extrabold bg-amber-400 text-slate-950 shadow transition'
+        : 'py-2 rounded-xl text-xs font-extrabold text-slate-400 hover:text-white transition';
+
+      document.getElementById('tab-join').className = !isCreate
+        ? 'py-2 rounded-xl text-xs font-extrabold bg-emerald-400 text-slate-950 shadow transition'
+        : 'py-2 rounded-xl text-xs font-extrabold text-slate-400 hover:text-white transition';
+    }
+
+    function getValidatedProfile() {
+      let name = document.getElementById('input-player-name').value.trim();
+      if (!name) {
+        const randomNick = ['Bos Muda', 'Sultan Hoki', 'Suhu Kartu', 'Raja Gertak', 'Anak Sultan', 'Juragan Chip'];
+        name = randomNick[Math.floor(Math.random() * randomNick.length)];
+        document.getElementById('input-player-name').value = name;
+      }
+      localStorage.setItem('poker_p2p_name', name);
+      appState.myName = name;
+      return true;
+    }
+
+    /* ==================== HOST MEMBUAT ROOM ==================== */
+    function createHostRoom() {
+      SoundFX.init();
+      getValidatedProfile();
+
+      const btn = document.getElementById('btn-create-room');
+      btn.disabled = true;
+      btn.innerHTML = '<span>⏳ Membuat Meja P2P...</span>';
+
+      appState.role = 'host';
+      appState.roomCode = generateRoomCode();
+      appState.startingChips = parseInt(document.getElementById('select-starting-chips').value, 10);
+      appState.smallBlind = parseInt(document.getElementById('select-blinds').value, 10);
+
+      const hostPeerId = getPeerIdFromCode(appState.roomCode);
+      const peer = new Peer(hostPeerId, ICE_CONFIG);
+      appState.peer = peer;
+
+      peer.on('open', (id) => {
+        appState.myId = id;
+        appState.game = {
+          phase: 'lobby',
+          variant: appState.selectedVariant,
+          startingChips: appState.startingChips,
+          smallBlind: appState.smallBlind,
+          players: [{
+            id: id,
+            name: appState.myName,
+            avatar: appState.myAvatar,
+            chips: appState.startingChips,
+            bet: 0,
+            totalHandBet: 0,
+            folded: false,
+            allIn: false,
+            isHost: true,
+            connected: true,
+            hand: [],
+            handRankName: '',
+            hasActed: false,
+            drawDone: false
+          }],
+          dealerIdx: 0,
+          currentTurnIdx: -1,
+          pot: 0,
+          currentBet: 0,
+          minRaise: appState.smallBlind * 2,
+          communityCards: [],
+          winners: [],
+          statusMessage: 'Menunggu teman bergabung ke meja...'
+        };
+
+        enterRoomUI();
+        showToast(`Meja ${appState.roomCode} siap! Bagikan link ke temanmu.`, 'success');
+      });
+
+      peer.on('connection', (conn) => {
+        conn.on('open', () => {
+          appState.connections[conn.peer] = conn;
+        });
+
+        conn.on('data', (data) => {
+          handleHostReceiveData(conn.peer, data);
+        });
+
+        conn.on('close', () => {
+          handlePlayerDisconnect(conn.peer);
+        });
+
+        conn.on('error', () => {
+          handlePlayerDisconnect(conn.peer);
+        });
+      });
+
+      peer.on('error', (err) => {
+        btn.disabled = false;
+        btn.innerHTML = '<span>🚀 Buat Meja Sekarang</span>';
+        showToast('Gagal membuat koneksi P2P: ' + err.type, 'error');
+      });
+    }
+
+    /* ==================== GUEST GABUNG ROOM ==================== */
+    function joinGuestRoom() {
+      SoundFX.init();
+      getValidatedProfile();
+
+      const rawCode = document.getElementById('input-room-code').value.trim().toUpperCase();
+      if (rawCode.length < 4) {
+        showToast('Masukkan kode room minimal 4 karakter ya!', 'warning');
+        return;
+      }
+
+      const btn = document.getElementById('btn-join-room');
+      btn.disabled = true;
+      btn.innerHTML = '<span>⏳ Menghubungkan ke Host...</span>';
+
+      appState.role = 'guest';
+      appState.roomCode = rawCode;
+
+      const peer = new Peer(ICE_CONFIG);
+      appState.peer = peer;
+
+      peer.on('open', (myPeerId) => {
+        appState.myId = myPeerId;
+        const hostId = getPeerIdFromCode(rawCode);
+        const conn = peer.connect(hostId, { reliable: true });
+        appState.hostConn = conn;
+
+        const timeout = setTimeout(() => {
+          if (!conn.open) {
+            btn.disabled = false;
+            btn.innerHTML = '<span>🎯 Gabung ke Meja</span>';
+            showToast('Room tidak ditemukan atau Host sedang offline.', 'error');
+          }
+        }, 9000);
+
+        conn.on('open', () => {
+          clearTimeout(timeout);
+          conn.send({
+            type: 'join_request',
+            name: appState.myName,
+            avatar: appState.myAvatar
+          });
+        });
+
+        conn.on('data', (data) => {
+          handleGuestReceiveData(data);
+        });
+
+        conn.on('close', () => {
+          showToast('Koneksi ke Host terputus! Meja ditutup.', 'error');
+          resetToHome();
+        });
+
+        conn.on('error', () => {
+          btn.disabled = false;
+          btn.innerHTML = '<span>🎯 Gabung ke Meja</span>';
+          showToast('Gagal terhubung ke meja Host.', 'error');
+        });
+      });
+
+      peer.on('error', (err) => {
+        btn.disabled = false;
+        btn.innerHTML = '<span>🎯 Gabung ke Meja</span>';
+        showToast('Koneksi P2P gagal: ' + err.type, 'error');
+      });
+    }
+
+    function enterRoomUI() {
+      document.getElementById('screen-home').classList.add('hidden');
+      document.getElementById('header-room-badge').classList.remove('hidden');
+      document.getElementById('header-room-badge').classList.add('flex');
+      document.getElementById('header-room-code').textContent = appState.roomCode;
+      document.getElementById('btn-leave-room').classList.remove('hidden');
+
+      renderAll();
+    }
+
+    function copyInviteLink() {
+      const url = new URL(window.location.href);
+      url.searchParams.set('room', appState.roomCode);
+      const inviteText = `Yuk mabar Poker P2P bareng! Kode Room: ${appState.roomCode}\nKlik link langsung masuk: ${url.toString()}`;
+
+      // Gunakan textarea + document.execCommand('copy') agar aman di semua iFrame/browser
+      const ta = document.createElement('textarea');
+      ta.value = inviteText;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        SoundFX.chatPop();
+        showToast('Link undangan & kode room berhasil disalin! 📋', 'success');
+      } catch (e) {
+        showToast(`Kode Room: ${appState.roomCode}`, 'info');
+      }
+      document.body.removeChild(ta);
+    }
+
+    function promptLeaveRoom() {
+      document.getElementById('confirm-title').textContent = 'Keluar dari Meja?';
+      document.getElementById('confirm-message').textContent = appState.role === 'host'
+        ? 'Kamu adalah Host. Jika kamu keluar, sesi meja ini akan berakhir untuk semua pemain.'
+        : 'Yakin ingin meninggalkan tongkrongan poker ini?';
+      document.getElementById('confirm-yes-btn').onclick = () => {
+        closeConfirmModal();
+        resetToHome();
+      };
+      document.getElementById('modal-confirm').classList.remove('hidden');
+    }
+
+    function closeConfirmModal() {
+      document.getElementById('modal-confirm').classList.add('hidden');
+    }
+
+    function resetToHome() {
+      if (appState.peer) {
+        try { appState.peer.destroy(); } catch (e) {}
+      }
+      appState.peer = null;
+      appState.role = null;
+      appState.connections = {};
+      appState.hostConn = null;
+
+      document.getElementById('screen-lobby').classList.add('hidden');
+      document.getElementById('screen-game').classList.add('hidden');
+      document.getElementById('screen-home').classList.remove('hidden');
+      document.getElementById('header-room-badge').classList.add('hidden');
+      document.getElementById('btn-leave-room').classList.add('hidden');
+
+      const btnCreate = document.getElementById('btn-create-room');
+      btnCreate.disabled = false;
+      btnCreate.innerHTML = '<span>🚀 Buat Meja Sekarang</span>';
+
+      const btnJoin = document.getElementById('btn-join-room');
+      btnJoin.disabled = false;
+      btnJoin.innerHTML = '<span>🎯 Gabung ke Meja</span>';
+    }
+
+    /* ==================== SINKRONISASI PESAN P2P (HOST <-> GUEST) ==================== */
+    function broadcastState(soundEvent = null) {
+      if (appState.role !== 'host') return;
+
+      // Kirim state yang aman (sembunyikan kartu tangan pemain lain kecuali saat showdown)
+      const isShowdown = appState.game.phase === 'showdown';
+
+      Object.entries(appState.connections).forEach(([peerId, conn]) => {
+        if (!conn.open) return;
+        const sanitizedPlayers = appState.game.players.map(p => ({
+          ...p,
+          hand: (p.id === peerId || (isShowdown && !p.folded))
+            ? p.hand
+            : p.hand.map(() => ({ hidden: true })),
+          handRankName: (p.id === peerId || isShowdown) ? p.handRankName : ''
+        }));
+
+        conn.send({
+          type: 'state_sync',
+          soundEvent,
+          game: {
+            ...appState.game,
+            players: sanitizedPlayers
+          }
+        });
+      });
+
+      if (soundEvent) playSoundEvent(soundEvent);
+      renderAll();
+    }
+
+    function broadcastReaction(playerId, reactionType, text) {
+      triggerReactionVisual(playerId, reactionType, text);
+      if (appState.role === 'host') {
+        Object.values(appState.connections).forEach(conn => {
+          if (conn.open) {
+            conn.send({ type: 'reaction', playerId, reactionType, text });
+          }
+        });
+      }
+    }
+
+    function handleHostReceiveData(senderId, data) {
+      if (!data || !data.type) return;
+
+      if (data.type === 'join_request') {
+        if (appState.game.players.length >= 8) {
+          const conn = appState.connections[senderId];
+          if (conn) {
+            conn.send({ type: 'join_rejected', reason: 'Meja sudah penuh (maksimal 8 pemain)!' });
+            setTimeout(() => conn.close(), 300);
+          }
+          return;
+        }
+
+        const existing = appState.game.players.find(p => p.id === senderId);
+        if (!existing) {
+          const inProgress = appState.game.phase !== 'lobby' && appState.game.phase !== 'showdown';
+          appState.game.players.push({
+            id: senderId,
+            name: String(data.name || 'Pemain').slice(0, 14),
+            avatar: data.avatar || '😎',
+            chips: appState.game.startingChips,
+            bet: 0,
+            totalHandBet: 0,
+            folded: inProgress, // Jika masuk tengah ronde, ikut ronde berikutnya
+            allIn: false,
+            isHost: false,
+            connected: true,
+            hand: [],
+            handRankName: '',
+            hasActed: inProgress,
+            drawDone: inProgress
+          });
+          showToast(`${data.name} bergabung ke meja! 🎉`, 'success');
+          broadcastState('chat');
+        }
+      } else if (data.type === 'player_action') {
+        processPlayerAction(senderId, data.action, data.amount);
+      } else if (data.type === 'draw_discard') {
+        processDrawDiscard(senderId, data.indices || []);
+      } else if (data.type === 'rebuy_request') {
+        const p = appState.game.players.find(x => x.id === senderId);
+        if (p && p.chips <= 0) {
+          p.chips = appState.game.startingChips;
+          showToast(`${p.name} isi ulang ${p.chips} chip! 🪙`, 'info');
+          broadcastState('chip');
+        }
+      } else if (data.type === 'reaction') {
+        broadcastReaction(senderId, data.reactionType, data.text);
+      }
+    }
+
+    function handleGuestReceiveData(data) {
+      if (!data || !data.type) return;
+
+      if (data.type === 'join_rejected') {
+        showToast(data.reason || 'Ditolak masuk meja.', 'error');
+        resetToHome();
+      } else if (data.type === 'state_sync') {
+        const firstJoin = document.getElementById('screen-home') && !document.getElementById('screen-home').classList.contains('hidden');
+        appState.game = data.game;
+        if (firstJoin) {
+          enterRoomUI();
+          showToast('Berhasil masuk ke meja tongkrongan! 🎉', 'success');
+        } else {
+          renderAll();
+        }
+        if (data.soundEvent) playSoundEvent(data.soundEvent);
+      } else if (data.type === 'reaction') {
+        triggerReactionVisual(data.playerId, data.reactionType, data.text);
+      }
+    }
+
+    function handlePlayerDisconnect(peerId) {
+      if (appState.role !== 'host') return;
+      delete appState.connections[peerId];
+      const idx = appState.game.players.findIndex(p => p.id === peerId);
+      if (idx === -1) return;
+
+      const leaver = appState.game.players[idx];
+      showToast(`${leaver.name} keluar dari meja.`, 'warning');
+
+      if (appState.game.phase === 'lobby' || appState.game.phase === 'showdown') {
+        appState.game.players.splice(idx, 1);
+        if (appState.game.dealerIdx >= appState.game.players.length) {
+          appState.game.dealerIdx = 0;
+        }
+      } else {
+        // Tandai fold dan hapus setelah ronde selesai agar index giliran tidak rusak
+        leaver.connected = false;
+        leaver.folded = true;
+        leaver.hasActed = true;
+        leaver.drawDone = true;
+        if (appState.game.currentTurnIdx === idx) {
+          advanceTurnOrPhase();
+          return;
+        }
+      }
+      broadcastState();
+    }
+
+    function playSoundEvent(ev) {
+      if (ev === 'deal') SoundFX.cardDeal();
+      else if (ev === 'chip') SoundFX.chipBet();
+      else if (ev === 'check') SoundFX.checkKnock();
+      else if (ev === 'fold') SoundFX.foldWhoosh();
+      else if (ev === 'chat') SoundFX.chatPop();
+      else if (ev === 'win') {
+        SoundFX.winFanfare();
+        launchConfetti();
+      }
+    }
+
+    /* ============================================================================
+       4. ENGINE DEK KARTU & EVALUATOR TANGAN POKER AKURAT (4 VARIAN)
+       ============================================================================ */
+    function buildDeck(variant) {
+      const minRank = variant === 'shortdeck' ? 6 : 2;
+      const deck = [];
+      for (const s of SUITS) {
+        for (let r = minRank; r <= 14; r++) {
+          deck.push({ rank: r, suit: s.id });
+        }
+      }
+      // Fisher-Yates Shuffle
+      for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+      }
+      return deck;
+    }
+
+    // Generate semua kombinasi ukuran k dari array arr
+    function getCombinations(arr, k) {
+      const results = [];
+      function helper(start, combo) {
+        if (combo.length === k) {
+          results.push(combo);
+          return;
+        }
+        for (let i = start; i <= arr.length - (k - combo.length); i++) {
+          helper(i + 1, [...combo, arr[i]]);
+        }
+      }
+      helper(0, []);
+      return results;
+    }
+
+    // Evaluasi tepat 5 kartu (mendukung aturan standar & Short Deck 6+)
+    function evaluate5Cards(cards, isShortDeck = false) {
+      const sorted = [...cards].sort((a, b) => b.rank - a.rank);
+      const ranks = sorted.map(c => c.rank);
+      const suits = sorted.map(c => c.suit);
+
+      const isFlush = suits.every(s => s === suits[0]);
+
+      // Cek Straight (termasuk Wheel: A-2-3-4-5 untuk standar, atau A-6-7-8-9 untuk Short Deck)
+      let isStraight = false;
+      let straightHigh = ranks[0];
+      const uniqueRanks = [...new Set(ranks)];
+      if (uniqueRanks.length === 5) {
+        if (ranks[0] - ranks[4] === 4) {
+          isStraight = true;
+          straightHigh = ranks[0];
+        } else if (!isShortDeck && ranks[0] === 14 && ranks[1] === 5 && ranks[2] === 4 && ranks[3] === 3 && ranks[4] === 2) {
+          isStraight = true;
+          straightHigh = 5;
+        } else if (isShortDeck && ranks[0] === 14 && ranks[1] === 9 && ranks[2] === 8 && ranks[3] === 7 && ranks[4] === 6) {
+          isStraight = true;
+          straightHigh = 9;
+        }
+      }
+
+      // Hitung frekuensi rank
+      const freqMap = {};
+      ranks.forEach(r => { freqMap[r] = (freqMap[r] || 0) + 1; });
+      const groups = Object.entries(freqMap)
+        .map(([r, count]) => ({ rank: parseInt(r, 10), count }))
+        .sort((a, b) => b.count - a.count || b.rank - a.rank);
+
+      // Peringkat Kategori:
+      // Standar: 8=Straight Flush, 7=Four of a Kind, 6=Full House, 5=Flush, 4=Straight, 3=Three of a Kind, 2=Two Pair, 1=One Pair, 0=High Card
+      // Short Deck: Flush (6) mengalahkan Full House (5)!
+      let category = 0;
+      let label = 'High Card';
+      let tieBreakers = [];
+
+      if (isFlush && isStraight) {
+        category = 8;
+        label = straightHigh === 14 ? 'Royal Flush 👑' : 'Straight Flush';
+        tieBreakers = [straightHigh];
+      } else if (groups[0].count === 4) {
+        category = 7;
+        label = `Four of a Kind (${RANK_LABELS[groups[0].rank]})`;
+        tieBreakers = [groups[0].rank, groups[1].rank];
+      } else if (groups[0].count === 3 && groups[1].count === 2) {
+        category = isShortDeck ? 5 : 6;
+        label = `Full House (${RANK_LABELS[groups[0].rank]} & ${RANK_LABELS[groups[1].rank]})`;
+        tieBreakers = [groups[0].rank, groups[1].rank];
+      } else if (isFlush) {
+        category = isShortDeck ? 6 : 5;
+        label = `Flush (${RANK_LABELS[ranks[0]]} High)`;
+        tieBreakers = ranks;
+      } else if (isStraight) {
+        category = 4;
+        label = `Straight (${RANK_LABELS[straightHigh]} High)`;
+        tieBreakers = [straightHigh];
+      } else if (groups[0].count === 3) {
+        category = 3;
+        label = `Three of a Kind (${RANK_LABELS[groups[0].rank]})`;
+        tieBreakers = [groups[0].rank, groups[1].rank, groups[2].rank];
+      } else if (groups[0].count === 2 && groups[1].count === 2) {
+        category = 2;
+        label = `Two Pair (${RANK_LABELS[groups[0].rank]} & ${RANK_LABELS[groups[1].rank]})`;
+        tieBreakers = [groups[0].rank, groups[1].rank, groups[2].rank];
+      } else if (groups[0].count === 2) {
+        category = 1;
+        label = `One Pair (${RANK_LABELS[groups[0].rank]})`;
+        tieBreakers = [groups[0].rank, groups[1].rank, groups[2].rank, groups[3].rank];
+      } else {
+        category = 0;
+        label = `High Card (${RANK_LABELS[ranks[0]]})`;
+        tieBreakers = ranks;
+      }
+
+      // Skor numerik presisi untuk perbandingan cepat
+      let score = category * 1e10;
+      tieBreakers.forEach((val, idx) => {
+        score += val * Math.pow(16, 4 - idx);
+      });
+
+      return { score, category, label, cards: sorted };
+    }
+
+    // Evaluasi tangan terbaik sesuai varian poker
+    function evaluateBestHand(holeCards, communityCards, variant) {
+      const validHole = (holeCards || []).filter(c => c && !c.hidden);
+      const validBoard = (communityCards || []).filter(c => c && !c.hidden);
+
+      if (variant === 'draw5') {
+        if (validHole.length < 5) return { score: 0, label: 'Menunggu kartu...', cards: [] };
+        return evaluate5Cards(validHole.slice(0, 5), false);
+      }
+
+      if (variant === 'omaha') {
+        // Wajib tepat 2 kartu dari hole + 3 kartu dari community
+        if (validHole.length < 2 || validBoard.length < 3) {
+          return { score: 0, label: `${validHole.length} Kartu Tangan`, cards: [] };
+        }
+        const holeCombos = getCombinations(validHole, 2);
+        const boardCombos = getCombinations(validBoard, 3);
+        let best = null;
+        for (const h2 of holeCombos) {
+          for (const b3 of boardCombos) {
+            const res = evaluate5Cards([...h2, ...b3], false);
+            if (!best || res.score > best.score) best = res;
+          }
+        }
+        return best;
+      }
+
+      // Texas Hold'em atau Short Deck (6+)
+      const isShort = variant === 'shortdeck';
+      const all = [...validHole, ...validBoard];
+      if (all.length < 5) {
+        if (all.length === 2 && all[0].rank === all[1].rank) {
+          return { score: 1, label: `Pocket Pair (${RANK_LABELS[all[0].rank]})`, cards: all };
+        }
+        const high = all.length ? Math.max(...all.map(c => c.rank)) : 0;
+        return { score: 0, label: high ? `High Card (${RANK_LABELS[high]})` : 'Menunggu...', cards: all };
+      }
+
+      const combos = getCombinations(all, 5);
+      let best = null;
+      for (const c5 of combos) {
+        const res = evaluate5Cards(c5, isShort);
+        if (!best || res.score > best.score) best = res;
+      }
+      return best;
+    }
+
+    /* ============================================================================
+       5. ALUR PERMAINAN POKER (STATE MACHINE DI HOST)
+       ============================================================================ */
+    function hostSelectLobbyVariant(varId) {
+      if (appState.role !== 'host') return;
+      appState.selectedVariant = varId;
+      appState.game.variant = varId;
+      broadcastState('deal');
+    }
+
+    function hostStartGame() {
+      if (appState.role !== 'host') return;
+      if (appState.game.players.length < 2) {
+        showToast('Minimal butuh 2 pemain (2 HP) untuk mulai!', 'warning');
+        return;
+      }
+      appState.game.dealerIdx = 0;
+      startNewRound();
+    }
+
+    function hostStartNextRound() {
+      if (appState.role !== 'host') return;
+      // Bersihkan pemain yang disconnect di ronde sebelumnya
+      appState.game.players = appState.game.players.filter(p => p.connected !== false);
+
+      const eligible = appState.game.players.filter(p => p.chips > 0);
+      if (eligible.length < 2) {
+        showToast('Minimal 2 pemain harus punya chip! Pemain yang habis chip silakan klik Isi Ulang.', 'warning');
+        return;
+      }
+
+      const nextVar = document.getElementById('next-round-variant-select').value;
+      appState.selectedVariant = nextVar;
+      appState.game.variant = nextVar;
+      appState.game.dealerIdx = (appState.game.dealerIdx + 1) % appState.game.players.length;
+      startNewRound();
+    }
+
+    function startNewRound() {
+      const g = appState.game;
+      const variant = g.variant;
+      hostDeck = buildDeck(variant);
+
+      g.pot = 0;
+      g.communityCards = [];
+      g.winners = [];
+      g.currentBet = 0;
+      g.minRaise = g.smallBlind * 2;
+      appState.selectedDiscardIndices = [];
+
+      const holeCount = variant === 'omaha' ? 4 : (variant === 'draw5' ? 5 : 2);
+
+      g.players.forEach(p => {
+        p.bet = 0;
+        p.totalHandBet = 0;
+        p.allIn = false;
+        p.hasActed = false;
+        p.drawDone = false;
+        if (p.chips <= 0) {
+          p.folded = true;
+          p.hand = [];
+          p.handRankName = 'Habis Chip';
+        } else {
+          p.folded = false;
+          p.hand = hostDeck.splice(0, holeCount);
+          const ev = evaluateBestHand(p.hand, [], variant);
+          p.handRankName = ev.label;
+        }
+      });
+
+      const activeIndices = g.players.map((p, idx) => (!p.folded ? idx : -1)).filter(i => i !== -1);
+      if (activeIndices.length < 2) {
+        g.phase = 'showdown';
+        g.statusMessage = 'Pemain aktif kurang dari 2. Silakan isi ulang chip!';
+        broadcastState();
+        return;
+      }
+
+      // Tentukan posisi Dealer, Small Blind, Big Blind
+      const n = g.players.length;
+      const findNextActive = (startIdx) => {
+        for (let step = 1; step <= n; step++) {
+          const idx = (startIdx + step) % n;
+          if (!g.players[idx].folded) return idx;
+        }
+        return startIdx;
+      };
+
+      // Pastikan dealerIdx berada pada pemain aktif
+      if (g.players[g.dealerIdx].folded) {
+        g.dealerIdx = findNextActive(g.dealerIdx);
+      }
+
+      let sbIdx, bbIdx, firstActorIdx;
+      if (activeIndices.length === 2) {
+        // Heads-up rule: Dealer adalah Small Blind, lawan adalah Big Blind
+        sbIdx = g.dealerIdx;
+        bbIdx = findNextActive(sbIdx);
+        firstActorIdx = sbIdx;
+      } else {
+        sbIdx = findNextActive(g.dealerIdx);
+        bbIdx = findNextActive(sbIdx);
+        firstActorIdx = findNextActive(bbIdx);
+      }
+
+      postBlind(sbIdx, g.smallBlind);
+      postBlind(bbIdx, g.smallBlind * 2);
+
+      g.phase = variant === 'draw5' ? 'draw_bet1' : 'preflop';
+      g.currentTurnIdx = firstActorIdx;
+      g.statusMessage = `Giliran ${g.players[firstActorIdx].name} bertindak`;
+
+      // Jika semua pemain langsung all-in karena blind
+      if (countPlayersAbleToAct() <= 1 && isBettingRoundSettled()) {
+        advanceTurnOrPhase();
+      } else {
+        broadcastState('deal');
+      }
+    }
+
+    function postBlind(playerIdx, amount) {
+      const g = appState.game;
+      const p = g.players[playerIdx];
+      const actual = Math.min(p.chips, amount);
+      p.chips -= actual;
+      p.bet += actual;
+      p.totalHandBet += actual;
+      g.pot += actual;
+      if (p.chips === 0) p.allIn = true;
+      if (p.bet > g.currentBet) g.currentBet = p.bet;
+    }
+
+    function countRemainingInHand() {
+      return appState.game.players.filter(p => !p.folded).length;
+    }
+
+    function countPlayersAbleToAct() {
+      return appState.game.players.filter(p => !p.folded && !p.allIn).length;
+    }
+
+    function isBettingRoundSettled() {
+      const g = appState.game;
+      const active = g.players.filter(p => !p.folded && !p.allIn);
+      if (active.length === 0) return true;
+      return active.every(p => p.hasActed && p.bet === g.currentBet);
+    }
+
+    function processPlayerAction(playerId, action, raiseTotalAmount = 0) {
+      if (appState.role !== 'host') return;
+      const g = appState.game;
+      const pIdx = g.players.findIndex(p => p.id === playerId);
+      if (pIdx === -1 || pIdx !== g.currentTurnIdx) return;
+
+      const p = g.players[pIdx];
+      if (p.folded || p.allIn) return;
+
+      const toCall = Math.max(0, g.currentBet - p.bet);
+      let soundEv = 'chip';
+
+      if (action === 'fold') {
+        p.folded = true;
+        p.hasActed = true;
+        soundEv = 'fold';
+        g.statusMessage = `${p.name} Fold 🏳️`;
+      } else if (action === 'call') {
+        if (toCall === 0) {
+          p.hasActed = true;
+          soundEv = 'check';
+          g.statusMessage = `${p.name} Check 👌`;
+        } else {
+          const pay = Math.min(p.chips, toCall);
+          p.chips -= pay;
+          p.bet += pay;
+          p.totalHandBet += pay;
+          g.pot += pay;
+          p.hasActed = true;
+          if (p.chips === 0) p.allIn = true;
+          soundEv = 'chip';
+          g.statusMessage = p.allIn ? `${p.name} Call ALL-IN! 🔥` : `${p.name} Call ${pay}`;
+        }
+      } else if (action === 'raise') {
+        const maxTotal = p.bet + p.chips;
+        let targetTotal = Math.min(maxTotal, Math.max(g.currentBet + g.minRaise, parseInt(raiseTotalAmount, 10) || 0));
+        if (targetTotal <= g.currentBet) targetTotal = maxTotal;
+
+        const added = targetTotal - p.bet;
+        const raiseDiff = targetTotal - g.currentBet;
+        if (raiseDiff >= g.minRaise) {
+          g.minRaise = raiseDiff;
+        }
+
+        p.chips -= added;
+        p.bet = targetTotal;
+        p.totalHandBet += added;
+        g.pot += added;
+        g.currentBet = targetTotal;
+        if (p.chips === 0) p.allIn = true;
+
+        // Reset hasActed pemain lain yang masih aktif karena ada kenaikan taruhan
+        g.players.forEach((other, idx) => {
+          if (idx !== pIdx && !other.folded && !other.allIn) {
+            other.hasActed = false;
+          }
+        });
+        p.hasActed = true;
+        soundEv = 'chip';
+        g.statusMessage = p.allIn ? `${p.name} ALL-IN (${targetTotal})! 🔥` : `${p.name} Raise ke ${targetTotal} 🚀`;
+      }
+
+      advanceTurnOrPhase(soundEv);
+    }
+
+    function advanceTurnOrPhase(lastSound = null) {
+      const g = appState.game;
+
+      // 1. Jika hanya tersisa 1 pemain yang belum fold -> langsung menang!
+      if (countRemainingInHand() === 1) {
+        resolveShowdown(true);
+        return;
+      }
+
+      // 2. Jika ronde taruhan sudah selesai -> lanjut ke fase berikutnya
+      if (isBettingRoundSettled()) {
+        moveToNextPhase();
+        return;
+      }
+
+      // 3. Cari pemain aktif berikutnya untuk giliran taruhan
+      const n = g.players.length;
+      for (let step = 1; step <= n; step++) {
+        const nextIdx = (g.currentTurnIdx + step) % n;
+        const cand = g.players[nextIdx];
+        if (!cand.folded && !cand.allIn) {
+          g.currentTurnIdx = nextIdx;
+          g.statusMessage = `Giliran ${cand.name} bertindak`;
+          broadcastState(lastSound);
+          return;
+        }
+      }
+
+      moveToNextPhase();
+    }
+
+    function moveToNextPhase() {
+      const g = appState.game;
+      const variant = g.variant;
+
+      // Reset taruhan per ronde
+      g.players.forEach(p => {
+        p.bet = 0;
+        p.hasActed = false;
+      });
+      g.currentBet = 0;
+      g.minRaise = g.smallBlind * 2;
+
+      const findFirstPostFlopActor = () => {
+        const n = g.players.length;
+        for (let step = 1; step <= n; step++) {
+          const idx = (g.dealerIdx + step) % n;
+          if (!g.players[idx].folded && !g.players[idx].allIn) return idx;
+        }
+        return -1;
+      };
+
+      // ALUR KHUSUS FIVE-CARD DRAW
+      if (variant === 'draw5') {
+        if (g.phase === 'draw_bet1') {
+          g.phase = 'draw_exchange';
+          g.currentTurnIdx = -1;
+          g.players.forEach(p => {
+            p.drawDone = p.folded || p.connected === false;
+          });
+          g.statusMessage = 'Fase Tukar Kartu! Pilih 0–5 kartu untuk diganti.';
+          broadcastState('deal');
+          return;
+        } else if (g.phase === 'draw_exchange') {
+          g.phase = 'draw_bet2';
+          const actor = findFirstPostFlopActor();
+          if (actor === -1 || countPlayersAbleToAct() <= 1) {
+            resolveShowdown(false);
+          } else {
+            g.currentTurnIdx = actor;
+            g.statusMessage = `Taruhan ke-2: Giliran ${g.players[actor].name}`;
+            broadcastState('deal');
+          }
+          return;
+        } else if (g.phase === 'draw_bet2') {
+          resolveShowdown(false);
+          return;
+        }
+      }
+
+      // ALUR TEXAS HOLD'EM / OMAHA / SHORT DECK
+      if (g.phase === 'preflop') {
+        g.phase = 'flop';
+        g.communityCards.push(...hostDeck.splice(0, 3));
+      } else if (g.phase === 'flop') {
+        g.phase = 'turn';
+        g.communityCards.push(...hostDeck.splice(0, 1));
+      } else if (g.phase === 'turn') {
+        g.phase = 'river';
+        g.communityCards.push(...hostDeck.splice(0, 1));
+      } else if (g.phase === 'river') {
+        resolveShowdown(false);
+        return;
+      }
+
+      // Update label kombinasi tangan masing-masing pemain
+      g.players.forEach(p => {
+        if (!p.folded) {
+          p.handRankName = evaluateBestHand(p.hand, g.communityCards, variant).label;
+        }
+      });
+
+      // Jika semua pemain All-In (atau maksimal 1 orang yang masih punya chip), otomatis buka sisa kartu meja sampai Showdown!
+      if (countPlayersAbleToAct() <= 1) {
+        g.currentTurnIdx = -1;
+        g.statusMessage = 'ALL-IN Showdown! Membuka semua kartu...';
+        broadcastState('deal');
+        setTimeout(() => {
+          if (appState.role === 'host' && appState.game.phase !== 'showdown') {
+            moveToNextPhase();
+          }
+        }, 1250);
+        return;
+      }
+
+      const nextActor = findFirstPostFlopActor();
+      g.currentTurnIdx = nextActor;
+      g.statusMessage = `${g.phase.toUpperCase()}: Giliran ${g.players[nextActor].name}`;
+      broadcastState('deal');
+    }
+
+    // Proses Tukar Kartu (5-Card Draw)
+    function processDrawDiscard(playerId, indices) {
+      if (appState.role !== 'host') return;
+      const g = appState.game;
+      if (g.phase !== 'draw_exchange') return;
+
+      const p = g.players.find(x => x.id === playerId);
+      if (!p || p.folded || p.drawDone) return;
+
+      const validIndices = [...new Set(indices)].filter(i => i >= 0 && i < p.hand.length);
+      validIndices.forEach(idx => {
+        if (hostDeck.length > 0) {
+          p.hand[idx] = hostDeck.shift();
+        }
+      });
+
+      p.drawDone = true;
+      p.handRankName = evaluateBestHand(p.hand, [], 'draw5').label;
+      g.statusMessage = `${p.name} menukar ${validIndices.length} kartu 🔄`;
+
+      if (g.players.every(pl => pl.drawDone)) {
+        moveToNextPhase();
+      } else {
+        broadcastState('deal');
+      }
+    }
+
+    // Penentuan Pemenang & Pembagian Pot (Termasuk Split Pot)
+    function resolveShowdown(wonByFold) {
+      const g = appState.game;
+      g.phase = 'showdown';
+      g.currentTurnIdx = -1;
+
+      const contenders = g.players.filter(p => !p.folded);
+      if (wonByFold || contenders.length === 1) {
+        const winner = contenders[0];
+        winner.chips += g.pot;
+        g.winners = [{
+          id: winner.id,
+          name: winner.name,
+          amount: g.pot,
+          rankName: 'Lawan Fold Semua',
+          bestCards: []
+        }];
+        g.statusMessage = `🏆 ${winner.name} menang ${g.pot} chip!`;
+        g.pot = 0;
+        broadcastState('win');
+        return;
+      }
+
+      // Evaluasi tangan semua pemain yang bertahan
+      const evaluated = contenders.map(p => {
+        const res = evaluateBestHand(p.hand, g.communityCards, g.variant);
+        p.handRankName = res.label;
+        return { player: p, evalRes: res };
+      });
+
+      evaluated.sort((a, b) => b.evalRes.score - a.evalRes.score);
+      const topScore = evaluated[0].evalRes.score;
+      const topWinners = evaluated.filter(e => e.evalRes.score === topScore);
+
+      const share = Math.floor(g.pot / topWinners.length);
+      const remainder = g.pot % topWinners.length;
+
+      g.winners = topWinners.map((w, idx) => {
+        const wonAmount = share + (idx === 0 ? remainder : 0);
+        w.player.chips += wonAmount;
+        return {
+          id: w.player.id,
+          name: w.player.name,
+          amount: wonAmount,
+          rankName: w.evalRes.label,
+          bestCards: w.evalRes.cards
+        };
+      });
+
+      const names = g.winners.map(w => w.name).join(' & ');
+      g.statusMessage = `🏆 ${names} menang (${g.winners[0].rankName})!`;
+      g.pot = 0;
+      broadcastState('win');
+    }
+
+    /* ============================================================================
+       6. AKSI PEMAIN LOKAL (KIRIM KE HOST ATAU EKSEKUSI LANGSUNG JIKA HOST)
+       ============================================================================ */
+    function sendPlayerAction(action) {
+      const raiseVal = parseInt(document.getElementById('raise-slider').value, 10) || 0;
+      if (appState.role === 'host') {
+        processPlayerAction(appState.myId, action, raiseVal);
+      } else if (appState.hostConn && appState.hostConn.open) {
+        appState.hostConn.send({
+          type: 'player_action',
+          action,
+          amount: raiseVal
+        });
+      }
+    }
+
+    function toggleDiscardCard(idx) {
+      if (appState.game.phase !== 'draw_exchange') return;
+      const me = appState.game.players.find(p => p.id === appState.myId);
+      if (!me || me.folded || me.drawDone) return;
+
+      const pos = appState.selectedDiscardIndices.indexOf(idx);
+      if (pos === -1) {
+        appState.selectedDiscardIndices.push(idx);
+      } else {
+        appState.selectedDiscardIndices.splice(pos, 1);
+      }
+      SoundFX.cardDeal();
+      renderMyHand();
+      updateDrawControls();
+    }
+
+    function submitDrawDiscard() {
+      const indices = [...appState.selectedDiscardIndices];
+      appState.selectedDiscardIndices = [];
+      if (appState.role === 'host') {
+        processDrawDiscard(appState.myId, indices);
+      } else if (appState.hostConn && appState.hostConn.open) {
+        appState.hostConn.send({ type: 'draw_discard', indices });
+      }
+    }
+
+    function requestRebuy() {
+      if (appState.role === 'host') {
+        const me = appState.game.players.find(p => p.id === appState.myId);
+        if (me && me.chips <= 0) {
+          me.chips = appState.game.startingChips;
+          showToast(`Chip kamu diisi ulang ${me.chips}! 🪙`, 'success');
+          broadcastState('chip');
+        }
+      } else if (appState.hostConn && appState.hostConn.open) {
+        appState.hostConn.send({ type: 'rebuy_request' });
+      }
+    }
+
+    // Reaksi Emoji & Chat Lucu
+    function toggleChatDrawer() {
+      const drawer = document.getElementById('chat-emoji-drawer');
+      drawer.classList.toggle('hidden');
+    }
+
+    function sendReaction(reactionType, text) {
+      if (!text.trim()) return;
+      if (appState.role === 'host') {
+        broadcastReaction(appState.myId, reactionType, text);
+      } else if (appState.hostConn && appState.hostConn.open) {
+        triggerReactionVisual(appState.myId, reactionType, text);
+        appState.hostConn.send({ type: 'reaction', reactionType, text });
+      }
+      if (reactionType === 'chat') {
+        document.getElementById('chat-emoji-drawer').classList.add('hidden');
+      }
+    }
+
+    function submitCustomChat(e) {
+      e.preventDefault();
+      const input = document.getElementById('input-custom-chat');
+      const val = input.value.trim();
+      if (!val) return;
+      sendReaction('chat', val);
+      input.value = '';
+    }
+
+    function triggerReactionVisual(playerId, reactionType, text) {
+      SoundFX.chatPop();
+      appState.activeReactions[playerId] = {
+        type: reactionType,
+        text,
+        expiresAt: Date.now() + 4000
+      };
+      renderTableSeats();
+      setTimeout(() => {
+        if (appState.activeReactions[playerId] && Date.now() >= appState.activeReactions[playerId].expiresAt - 100) {
+          delete appState.activeReactions[playerId];
+          renderTableSeats();
+        }
+      }, 4100);
+    }
+
+    /* ============================================================================
+       7. RENDER UI LOBBY, MEJA OVAL 2-8 PEMAIN & KONTROL JEMPOL
+       ============================================================================ */
+    function renderAll() {
+      const g = appState.game;
+      const isLobby = g.phase === 'lobby';
+
+      document.getElementById('screen-lobby').classList.toggle('hidden', !isLobby);
+      document.getElementById('screen-lobby').classList.toggle('flex', isLobby);
+      document.getElementById('screen-game').classList.toggle('hidden', isLobby);
+      document.getElementById('screen-game').classList.toggle('flex', !isLobby);
+
+      if (isLobby) {
+        renderLobby();
+      } else {
+        renderGameTable();
+      }
+    }
+
+    function renderLobby() {
+      const g = appState.game;
+      document.getElementById('lobby-room-code').textContent = appState.roomCode;
+      document.getElementById('lobby-player-count').textContent = g.players.length;
+      document.getElementById('lobby-blinds-info').textContent = `Chip: ${g.startingChips} | Blind: ${g.smallBlind}/${g.smallBlind * 2}`;
+
+      // Varian Grid di Lobby
+      const varGrid = document.getElementById('lobby-variant-grid');
+      varGrid.innerHTML = Object.values(VARIANTS).map(v => {
+        const active = g.variant === v.id;
+        const clickable = appState.role === 'host';
+        return `
+          <button type="button" ${clickable ? `onclick="hostSelectLobbyVariant('${v.id}')"` : 'disabled'}
+            class="text-left p-2.5 rounded-2xl border transition ${active ? 'bg-amber-400/20 border-amber-400 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'} ${clickable ? 'hover:border-amber-400/60 cursor-pointer' : 'cursor-default'}">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-extrabold">${v.icon} ${v.name}</span>
+              ${active ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-extrabold">AKTIF</span>' : ''}
+            </div>
+            <p class="text-[10px] text-slate-400 mt-1">${v.shortDesc}</p>
+          </button>
+        `;
+      }).join('');
+
+      // Daftar Pemain
+      const list = document.getElementById('lobby-players-list');
+      list.innerHTML = g.players.map(p => `
+        <div class="bg-slate-950/90 border ${p.id === appState.myId ? 'border-amber-400/60' : 'border-slate-800'} rounded-2xl p-2.5 flex flex-col items-center text-center relative">
+          ${p.isHost ? '<span class="absolute top-1.5 right-1.5 text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold">HOST</span>' : ''}
+          <span class="text-2xl mb-1">${p.avatar}</span>
+          <span class="text-xs font-extrabold text-white truncate w-full">${escapeHtml(p.name)}</span>
+          <span class="font-mono-num text-[10px] text-emerald-400 font-bold">🪙 ${p.chips}</span>
+        </div>
+      `).join('');
+
+      const isHost = appState.role === 'host';
+      document.getElementById('lobby-host-controls').classList.toggle('hidden', !isHost);
+      document.getElementById('lobby-guest-wait').classList.toggle('hidden', isHost);
+
+      if (isHost) {
+        const btnStart = document.getElementById('btn-start-game');
+        btnStart.disabled = g.players.length < 2;
+      }
+    }
+
+    function renderCardHTML(card, size = 'md', isWinnerCard = false, isDiscardSelected = false) {
+      const sizeClasses = {
+        sm: 'w-7 h-10 text-[10px] p-0.5',
+        md: 'w-11 h-16 sm:w-13 sm:h-19 text-xs sm:text-sm p-1',
+        lg: 'w-13 h-19 sm:w-15 sm:h-22 text-sm sm:text-base p-1.5'
+      }[size] || 'w-11 h-16 text-xs p-1';
+
+      if (!card || card.hidden) {
+        return `<div class="playing-card back ${sizeClasses} animate-deal shrink-0"></div>`;
+      }
+
+      const suitObj = SUITS.find(s => s.id === card.suit) || SUITS[0];
+      const rankStr = RANK_LABELS[card.rank] || card.rank;
+
+      return `
+        <div class="playing-card ${sizeClasses} ${suitObj.color} ${isWinnerCard ? 'winner-glow' : ''} ${isDiscardSelected ? 'discard-selected' : ''} animate-deal shrink-0 font-extrabold leading-none">
+          <div class="flex flex-col items-start">
+            <span>${rankStr}</span>
+            <span class="text-[9px] sm:text-[11px]">${suitObj.symbol}</span>
+          </div>
+          <div class="self-end text-sm sm:text-lg leading-none">${suitObj.symbol}</div>
+        </div>
+      `;
+    }
+
+    function renderGameTable() {
+      const g = appState.game;
+      const vInfo = VARIANTS[g.variant] || VARIANTS.texas;
+
+      document.getElementById('game-variant-badge').textContent = `${vInfo.icon} ${vInfo.name}`;
+      document.getElementById('game-stage-badge').textContent = g.phase.replace('_', ' ').toUpperCase();
+      document.getElementById('game-status-text').textContent = g.statusMessage;
+      document.getElementById('game-blind-display').textContent = `${g.smallBlind}/${g.smallBlind * 2}`;
+      document.getElementById('table-pot-amount').textContent = g.pot.toLocaleString('id-ID');
+
+      // Render Community Cards vs 5-Card Draw Center Info
+      const commArea = document.getElementById('community-cards-area');
+      const drawCenter = document.getElementById('draw-table-center-info');
+
+      if (g.variant === 'draw5') {
+        commArea.classList.add('hidden');
+        drawCenter.classList.remove('hidden');
+        document.getElementById('draw-center-sub').textContent = g.phase === 'draw_exchange'
+          ? 'Sedang fase tukar kartu...'
+          : 'Tidak ada kartu meja di varian 5-Card Draw';
+      } else {
+        commArea.classList.remove('hidden');
+        drawCenter.classList.add('hidden');
+
+        const winCardKeys = new Set();
+        if (g.phase === 'showdown' && g.winners.length > 0) {
+          (g.winners[0].bestCards || []).forEach(c => winCardKeys.add(`${c.rank}-${c.suit}`));
+        }
+
+        let slotsHTML = '';
+        for (let i = 0; i < 5; i++) {
+          const c = g.communityCards[i];
+          if (c) {
+            const isWin = winCardKeys.has(`${c.rank}-${c.suit}`);
+            slotsHTML += renderCardHTML(c, 'md', isWin, false);
+          } else {
+            slotsHTML += `<div class="w-11 h-16 sm:w-13 sm:h-19 rounded-lg border border-dashed border-amber-300/20 bg-slate-950/25 shrink-0"></div>`;
+          }
+        }
+        commArea.innerHTML = slotsHTML;
+      }
+
+      // Winner Banner
+      const winBanner = document.getElementById('winner-banner');
+      if (g.phase === 'showdown' && g.winners.length > 0) {
+        winBanner.classList.remove('hidden');
+        const names = g.winners.map(w => `${w.name} (+${w.amount})`).join(', ');
+        winBanner.textContent = `🏆 ${names} • ${g.winners[0].rankName}`;
+      } else {
+        winBanner.classList.add('hidden');
+      }
+
+      renderTableSeats();
+      renderMyHand();
+      renderActionControls();
+    }
+
+    // Koordinat Posisi Kursi Mengelilingi Meja Oval (Maksimal 8 Kursi)
+    const SEAT_COORDS = [
+      { top: '88%', left: '50%' },  // 0: Bawah Tengah (Saya)
+      { top: '76%', left: '13%' },  // 1: Kiri Bawah
+      { top: '42%', left: '7%' },   // 2: Kiri Tengah
+      { top: '10%', left: '22%' },  // 3: Kiri Atas
+      { top: '5%',  left: '50%' },  // 4: Atas Tengah
+      { top: '10%', left: '78%' },  // 5: Kanan Atas
+      { top: '42%', left: '93%' },  // 6: Kanan Tengah
+      { top: '76%', left: '87%' }   // 7: Kanan Bawah
+    ];
+
+    function getMappedSeatIndices(totalPlayers) {
+      if (totalPlayers <= 2) return [0, 4];
+      if (totalPlayers === 3) return [0, 2, 6];
+      if (totalPlayers === 4) return [0, 2, 4, 6];
+      if (totalPlayers === 5) return [0, 1, 3, 5, 7];
+      if (totalPlayers === 6) return [0, 1, 3, 4, 5, 7];
+      if (totalPlayers === 7) return [0, 1, 2, 3, 5, 6, 7];
+      return [0, 1, 2, 3, 4, 5, 6, 7];
+    }
+
+    function renderTableSeats() {
+      const g = appState.game;
+      const container = document.getElementById('seats-container');
+      const total = g.players.length;
+      if (total === 0) {
+        container.innerHTML = '';
+        return;
+      }
+
+      // Putar urutan agar pemain lokal selalu berada di kursi bawah (index 0)
+      let myIndex = g.players.findIndex(p => p.id === appState.myId);
+      if (myIndex === -1) myIndex = 0;
+
+      const seatSlots = getMappedSeatIndices(total);
+      let html = '';
+
+      for (let offset = 0; offset < total; offset++) {
+        const realIdx = (myIndex + offset) % total;
+        const p = g.players[realIdx];
+        const coord = SEAT_COORDS[seatSlots[offset]];
+        const isTurn = g.currentTurnIdx === realIdx && g.phase !== 'showdown';
+        const isDealer = g.dealerIdx === realIdx;
+        const isWinner = g.phase === 'showdown' && g.winners.some(w => w.id === p.id);
+        const reaction = appState.activeReactions[p.id];
+
+        // Kartu mini lawan saat showdown atau tertutup
+        let miniCardsHTML = '';
+        if (offset !== 0 && !p.folded && p.hand && p.hand.length > 0) {
+          miniCardsHTML = `<div class="flex -space-x-2 mt-1 justify-center">
+            ${p.hand.map(c => renderCardHTML(c, 'sm', isWinner, false)).join('')}
+          </div>`;
+        }
+
+        // Bubble Chat atau Emoji Melayang
+        let reactionHTML = '';
+        if (reaction) {
+          if (reaction.type === 'emoji') {
+            reactionHTML = `<div class="floating-emoji">${escapeHtml(reaction.text)}</div>`;
+          } else {
+            reactionHTML = `<div class="chat-bubble">${escapeHtml(reaction.text)}</div>`;
+          }
+        }
+
+        html += `
+          <div style="top: ${coord.top}; left: ${coord.left};"
+            class="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-auto transition-all duration-300 z-20">
+            ${reactionHTML}
+            <div class="relative px-2.5 py-1.5 rounded-2xl bg-slate-900/95 border ${isWinner ? 'border-amber-400 bg-amber-950/90 scale-105' : (isTurn ? 'border-amber-400 active-turn-ring' : 'border-slate-700')} ${p.folded ? 'opacity-45 grayscale' : ''} shadow-xl min-w-[84px] sm:min-w-[100px] text-center">
+              ${isDealer ? '<span class="absolute -top-2 -left-2 w-5 h-5 rounded-full bg-amber-400 text-slate-950 font-extrabold text-[10px] flex items-center justify-center border border-slate-900 shadow">D</span>' : ''}
+              ${p.allIn && !p.folded ? '<span class="absolute -top-2 right-0 px-1.5 py-0.2 rounded bg-rose-600 text-white font-extrabold text-[9px] shadow">ALL-IN</span>' : ''}
+              ${p.folded ? '<span class="absolute -top-2 right-0 px-1.5 py-0.2 rounded bg-slate-700 text-slate-300 font-bold text-[9px]">FOLD</span>' : ''}
+
+              <div class="flex items-center justify-center gap-1">
+                <span class="text-sm sm:text-base">${p.avatar}</span>
+                <span class="text-[11px] font-extrabold text-white truncate max-w-[64px] sm:max-w-[78px]">${escapeHtml(p.name)}</span>
+              </div>
+              <div class="font-mono-num text-[10px] sm:text-[11px] font-bold text-emerald-400">
+                🪙 ${p.chips.toLocaleString('id-ID')}
+              </div>
+
+              ${p.bet > 0 ? `
+                <div class="mt-0.5 inline-block px-1.5 py-0.2 rounded-full bg-amber-500/20 border border-amber-400/40 font-mono-num text-[10px] font-extrabold text-amber-300 animate-chip">
+                  Bet: ${p.bet}
+                </div>
+              ` : ''}
+            </div>
+            ${miniCardsHTML}
+          </div>
+        `;
+      }
+
+      container.innerHTML = html;
+    }
+
+    function renderMyHand() {
+      const g = appState.game;
+      const me = g.players.find(p => p.id === appState.myId);
+      const handContainer = document.getElementById('my-hand-cards');
+      const rankLabel = document.getElementById('my-hand-rank-label');
+      const chipsLabel = document.getElementById('my-chips-display');
+
+      if (!me) return;
+
+      chipsLabel.textContent = `🪙 ${me.chips.toLocaleString('id-ID')}`;
+
+      if (!me.hand || me.hand.length === 0) {
+        handContainer.innerHTML = `<span class="text-xs text-slate-500 italic">Tidak memegang kartu</span>`;
+        rankLabel.textContent = me.folded ? 'Fold / Menunggu ronde' : 'Menunggu...';
+        return;
+      }
+
+      const winCardKeys = new Set();
+      if (g.phase === 'showdown' && g.winners.some(w => w.id === me.id)) {
+        const myWinObj = g.winners.find(w => w.id === me.id);
+        (myWinObj.bestCards || []).forEach(c => winCardKeys.add(`${c.rank}-${c.suit}`));
+      }
+
+      const isDrawPhase = g.phase === 'draw_exchange' && !me.folded && !me.drawDone;
+
+      handContainer.innerHTML = me.hand.map((c, idx) => {
+        const isWin = winCardKeys.has(`${c.rank}-${c.suit}`);
+        const isSelected = isDrawPhase && appState.selectedDiscardIndices.includes(idx);
+        const cardMarkup = renderCardHTML(c, 'lg', isWin, isSelected);
+        if (isDrawPhase) {
+          return `<div onclick="toggleDiscardCard(${idx})" class="cursor-pointer">${cardMarkup}</div>`;
+        }
+        return cardMarkup;
+      }).join('');
+
+      const best = evaluateBestHand(me.hand, g.communityCards, g.variant);
+      rankLabel.textContent = me.folded ? '🏳️ Fold' : best.label;
+    }
+
+    function renderActionControls() {
+      const g = appState.game;
+      const me = g.players.find(p => p.id === appState.myId);
+      const myIdx = g.players.findIndex(p => p.id === appState.myId);
+
+      const betArea = document.getElementById('betting-controls-area');
+      const drawArea = document.getElementById('draw-phase-controls');
+      const betweenArea = document.getElementById('between-rounds-controls');
+
+      betArea.classList.add('hidden');
+      drawArea.classList.add('hidden');
+      betweenArea.classList.add('hidden');
+
+      if (!me) return;
+
+      // 1. Fase Tukar Kartu (5-Card Draw)
+      if (g.phase === 'draw_exchange' && !me.folded && !me.drawDone) {
+        drawArea.classList.remove('hidden');
+        updateDrawControls();
+        return;
+      }
+
+      // 2. Giliran Taruhan Saya
+      const isMyTurn = g.phase !== 'showdown' && g.phase !== 'lobby' && g.currentTurnIdx === myIdx && !me.folded && !me.allIn;
+      if (isMyTurn) {
+        betArea.classList.remove('hidden');
+
+        // Bunyikan notif giliran sekali per turn
+        const turnKey = `${g.phase}-${g.pot}-${myIdx}`;
+        if (appState.lastTurnSoundId !== turnKey) {
+          appState.lastTurnSoundId = turnKey;
+          SoundFX.yourTurn();
+        }
+
+        const toCall = Math.max(0, g.currentBet - me.bet);
+        const btnCall = document.getElementById('btn-call-check');
+        if (toCall === 0) {
+          btnCall.textContent = '✅ CHECK';
+        } else if (toCall >= me.chips) {
+          btnCall.textContent = `🔥 CALL ALL-IN (${me.chips})`;
+        } else {
+          btnCall.textContent = `✅ CALL ${toCall}`;
+        }
+
+        // Atur slider Raise
+        const raisePanel = document.getElementById('raise-panel');
+        const btnRaise = document.getElementById('btn-raise-submit');
+        const maxTotal = me.bet + me.chips;
+        const minTotal = Math.min(maxTotal, g.currentBet + g.minRaise);
+
+        if (me.chips <= toCall) {
+          raisePanel.classList.add('hidden');
+          btnRaise.disabled = true;
+          btnRaise.classList.add('opacity-40');
+        } else {
+          raisePanel.classList.remove('hidden');
+          btnRaise.disabled = false;
+          btnRaise.classList.remove('opacity-40');
+
+          const slider = document.getElementById('raise-slider');
+          slider.min = minTotal;
+          slider.max = maxTotal;
+          slider.step = Math.max(5, Math.floor(g.smallBlind / 2));
+          slider.value = minTotal;
+          onRaiseSliderChange(minTotal);
+        }
+        return;
+      }
+
+      // 3. Fase Showdown / Antar Ronde
+      if (g.phase === 'showdown') {
+        betweenArea.classList.remove('hidden');
+
+        const rebuyBox = document.getElementById('rebuy-box');
+        rebuyBox.classList.toggle('hidden', me.chips > 0);
+
+        const isHost = appState.role === 'host';
+        document.getElementById('host-next-round-box').classList.toggle('hidden', !isHost);
+        document.getElementById('guest-next-round-wait').classList.toggle('hidden', isHost);
+        if (isHost) {
+          document.getElementById('next-round-variant-select').value = g.variant;
+        }
+      }
+    }
+
+    function updateDrawControls() {
+      const count = appState.selectedDiscardIndices.length;
+      const btn = document.getElementById('btn-confirm-draw');
+      btn.textContent = count === 0
+        ? 'Tukar 0 Kartu (Stand Pat)'
+        : `🔄 Tukar ${count} Kartu Terpilih`;
+    }
+
+    function onRaiseSliderChange(val) {
+      const num = parseInt(val, 10) || 0;
+      document.getElementById('raise-amount-label').textContent = num;
+      document.getElementById('btn-raise-submit').textContent = `🔥 RAISE ${num}`;
+    }
+
+    function setRaisePreset(preset) {
+      const g = appState.game;
+      const me = g.players.find(p => p.id === appState.myId);
+      if (!me) return;
+
+      const slider = document.getElementById('raise-slider');
+      const min = parseInt(slider.min, 10);
+      const max = parseInt(slider.max, 10);
+      let target = min;
+
+      if (preset === 'min') target = min;
+      else if (preset === '2x') target = Math.max(min, g.currentBet * 2);
+      else if (preset === 'half') target = Math.max(min, g.currentBet + Math.floor(g.pot * 0.5));
+      else if (preset === 'pot') target = Math.max(min, g.currentBet + g.pot);
+      else if (preset === 'allin') target = max;
+
+      target = Math.min(max, Math.max(min, target));
+      slider.value = target;
+      onRaiseSliderChange(target);
+      SoundFX.chipBet();
+    }
+
+    /* ============================================================================
+       8. MODAL TUTORIAL INTERAKTIF PER VARIAN & URUTAN KOMBINASI KARTU
+       ============================================================================ */
+    const TUTORIAL_DATA = {
+      texas: `
+        <div class="bg-amber-500/10 border border-amber-400/30 rounded-2xl p-3.5">
+          <h4 class="font-extrabold text-amber-300 text-base mb-1">🤠 Texas Hold'em (Paling Populer)</h4>
+          <p class="text-slate-300">Varian poker standar dunia yang paling mudah dipelajari dan seru untuk gertak-gertakan.</p>
+        </div>
+        <ul class="space-y-2 list-disc pl-5 text-slate-300">
+          <li><strong>Pembagian Awal:</strong> Tiap pemain mendapat <strong>2 kartu tertutup</strong> (Hole Cards).</li>
+          <li><strong>Kartu Meja:</strong> Bandar membuka total <strong>5 kartu terbuka</strong> di tengah meja secara bertahap: <em>Flop</em> (3 kartu), <em>Turn</em> (1 kartu), dan <em>River</em> (1 kartu).</li>
+          <li><strong>Cara Menang:</strong> Buat kombinasi 5 kartu terbaik dari gabungan <strong>2 kartu tangan + 5 kartu meja</strong> (boleh pakai 2, 1, atau bahkan 0 kartu tangan).</li>
+        </ul>
+      `,
+      omaha: `
+        <div class="bg-rose-500/10 border border-rose-400/30 rounded-2xl p-3.5">
+          <h4 class="font-extrabold text-rose-300 text-base mb-1">🔥 Omaha Hold'em (Aksi Penuh Kombinasi)</h4>
+          <p class="text-slate-300">Mirip Texas Hold'em tapi kartu tangan lebih banyak dan punya aturan kombinasi yang wajib dipatuhi!</p>
+        </div>
+        <ul class="space-y-2 list-disc pl-5 text-slate-300">
+          <li><strong>Pembagian Awal:</strong> Tiap pemain mendapat <strong>4 kartu tertutup</strong> di tangan.</li>
+          <li><strong>Aturan Emas Omaha (WAJIB):</strong> Untuk membentuk 5 kartu terbaik saat Showdown, kamu <strong>HARUS memakai TEPAT 2 kartu dari tanganmu + TEPAT 3 kartu dari meja</strong>.</li>
+          <li><em>Contoh Jebakan:</em> Jika di meja ada 4 kartu Hati dan kamu cuma pegang 1 kartu Hati, itu <strong>BUKAN Flush</strong> karena kamu wajib memakai 2 kartu dari tangan!</li>
+        </ul>
+      `,
+      shortdeck: `
+        <div class="bg-emerald-500/10 border border-emerald-400/30 rounded-2xl p-3.5">
+          <h4 class="font-extrabold text-emerald-300 text-base mb-1">⚡ Short Deck / 6+ Hold'em (Tensi Tinggi)</h4>
+          <p class="text-slate-300">Dek dipangkas sehingga hampir setiap ronde muncul kartu monster!</p>
+        </div>
+        <ul class="space-y-2 list-disc pl-5 text-slate-300">
+          <li><strong>Kartu 2 sampai 5 Dihapus:</strong> Hanya menggunakan 36 kartu (angka <strong>6, 7, 8, 9, 10, J, Q, K, As</strong>).</li>
+          <li><strong>Aturan Khusus 1 (Flush > Full House):</strong> Karena kartu lebih sedikit, peluang dapat Flush lebih sulit daripada Full House. Maka di Short Deck, <strong>Flush mengalahkan Full House!</strong></li>
+          <li><strong>Aturan Khusus 2 (As Rendah):</strong> Kartu <strong>As</strong> tetap bisa dipakai sebagai angka terendah untuk membentuk Straight <strong>A - 6 - 7 - 8 - 9</strong>.</li>
+        </ul>
+      `,
+      draw5: `
+        <div class="bg-indigo-500/10 border border-indigo-400/30 rounded-2xl p-3.5">
+          <h4 class="font-extrabold text-indigo-300 text-base mb-1">🎴 Five-Card Draw (Poker Klasik)</h4>
+          <p class="text-slate-300">Poker legendaris ala film koboi! Tidak ada kartu terbuka di tengah meja.</p>
+        </div>
+        <ul class="space-y-2 list-disc pl-5 text-slate-300">
+          <li><strong>Langkah 1:</strong> Setiap pemain langsung menerima <strong>5 kartu tertutup</strong> di tangan, dilanjutkan ronde taruhan pertama.</li>
+          <li><strong>Langkah 2 (Tukar Kartu):</strong> Pemain yang bertahan boleh memilih <strong>0 sampai 5 kartu</strong> di tangannya untuk dibuang dan diganti kartu baru dari dek.</li>
+          <li><strong>Langkah 3:</strong> Dilakukan ronde taruhan kedua, lalu semua membuka 5 kartu di tangannya (Showdown).</li>
+        </ul>
+      `,
+      ranks: `
+        <p class="text-xs text-slate-400 mb-2">Urutan kombinasi 5 kartu dari yang <strong>terkuat (1)</strong> hingga <strong>terlemah (10)</strong>:</p>
+        <div class="space-y-2 text-xs">
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-amber-400/40 flex justify-between items-center">
+            <div><strong class="text-amber-300">1. Royal Flush</strong><p class="text-slate-400">10-J-Q-K-A dengan lambang sama</p></div>
+            <span class="font-mono-num text-rose-500 font-extrabold">10♥ J♥ Q♥ K♥ A♥</span>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex justify-between items-center">
+            <div><strong class="text-white">2. Straight Flush</strong><p class="text-slate-400">5 kartu berurutan & lambang sama</p></div>
+            <span class="font-mono-num text-slate-200 font-bold">5♠ 6♠ 7♠ 8♠ 9♠</span>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex justify-between items-center">
+            <div><strong class="text-white">3. Four of a Kind</strong><p class="text-slate-400">4 kartu kembar angka sama</p></div>
+            <span class="font-mono-num text-slate-200 font-bold">K♠ K♥ K♦ K♣ 7♠</span>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex justify-between items-center">
+            <div><strong class="text-white">4. Full House</strong><p class="text-slate-400">3 kartu kembar + 2 kartu kembar <span class="text-emerald-400">(Di Short Deck kalah dari Flush)</span></p></div>
+            <span class="font-mono-num text-slate-200 font-bold">Q♠ Q♥ Q♦ 9♣ 9♠</span>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex justify-between items-center">
+            <div><strong class="text-white">5. Flush</strong><p class="text-slate-400">5 kartu dengan lambang sama acak</p></div>
+            <span class="font-mono-num text-rose-500 font-bold">2♦ 6♦ 9♦ J♦ A♦</span>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex justify-between items-center">
+            <div><strong class="text-white">6. Straight</strong><p class="text-slate-400">5 kartu berurutan beda lambang</p></div>
+            <span class="font-mono-num text-slate-200 font-bold">7♠ 8♥ 9♦ 10♣ J♠</span>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex justify-between items-center">
+            <div><strong class="text-white">7. Three of a Kind</strong><p class="text-slate-400">3 kartu dengan angka sama</p></div>
+            <span class="font-mono-num text-slate-200 font-bold">8♠ 8♥ 8♦ K♣ 3♠</span>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex justify-between items-center">
+            <div><strong class="text-white">8. Two Pair</strong><p class="text-slate-400">2 pasang kartu kembar</p></div>
+            <span class="font-mono-num text-slate-200 font-bold">J♠ J♥ 4♦ 4♣ A♠</span>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex justify-between items-center">
+            <div><strong class="text-white">9. One Pair</strong><p class="text-slate-400">1 pasang kartu kembar</p></div>
+            <span class="font-mono-num text-slate-200 font-bold">10♠ 10♥ K♦ 7♣ 2♠</span>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex justify-between items-center">
+            <div><strong class="text-white">10. High Card</strong><p class="text-slate-400">Tidak ada kombinasi, diadu kartu tertinggi</p></div>
+            <span class="font-mono-num text-slate-200 font-bold">A♠ J♥ 8♦ 5♣ 2♠</span>
+          </div>
+        </div>
+      `
+    };
+
+    function openTutorialModal() {
+      const currentVar = appState.game.phase !== 'lobby' ? appState.game.variant : appState.selectedVariant;
+      switchTutorialTab(currentVar || 'texas');
+      document.getElementById('modal-tutorial').classList.remove('hidden');
+    }
+
+    function closeTutorialModal() {
+      document.getElementById('modal-tutorial').classList.add('hidden');
+    }
+
+    function switchTutorialTab(tabKey) {
+      document.querySelectorAll('.tut-tab').forEach(btn => {
+        btn.className = 'tut-tab shrink-0 px-3 py-1.5 rounded-xl text-xs font-extrabold bg-slate-800 text-slate-300 hover:bg-slate-700';
+      });
+      const activeBtn = document.getElementById(`tut-tab-${tabKey}`);
+      if (activeBtn) {
+        activeBtn.className = 'tut-tab shrink-0 px-3 py-1.5 rounded-xl text-xs font-extrabold bg-amber-400 text-slate-950';
+      }
+      document.getElementById('tutorial-content').innerHTML = TUTORIAL_DATA[tabKey] || TUTORIAL_DATA.texas;
+    }
+  </script>
+</body>
+</html>
